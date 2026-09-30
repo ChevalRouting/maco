@@ -4,11 +4,13 @@ Unit tests live beside the packages they cover, in `pkg/` and `cmd/`. Run
 everything with:
 
 ```bash
-make test
+task test
 ```
 
 That runs `go vet ./...` and `go test ./...`, plus a build check of the native
-network helper.
+network helper, deployment script tests, and the independent MCP module's
+vet and tests. `task test-mcp` runs only MCP checks; root `go test ./...`
+does not traverse the nested `mcp/` module.
 
 Run with coverage of the library packages:
 
@@ -36,3 +38,8 @@ Representative coverage:
 
 Privileged native networking and live guest boots are validated by hand rather
 than in the default run, since they need root and mutate host interfaces.
+
+`task test-deploy` exercises deployment scripts with mocked SSH, SCP, signing,
+and sudo commands. Service unit tests cover delayed shutdown, bootout errors,
+and cancellation before bootstrap. These checks do not modify launchd services
+or connect to a remote host.

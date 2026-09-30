@@ -11,6 +11,8 @@ import (
 
 // @Summary listImages
 // @ID listImages
+// @Description List images currently available on this Maco host. Compare with listCatalog to discover downloadable images.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags images
 // @Security BearerAuth
 // @Produce json
@@ -40,6 +42,8 @@ func (s *Server) listImages(w http.ResponseWriter, r *http.Request) {
 
 // @Summary listCatalog
 // @ID listCatalog
+// @Description List supported image catalog entries, download availability, and guest provisioning capabilities. Use returned catalog keys instead of guessing image names.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags catalog
 // @Security BearerAuth
 // @Produce json
@@ -52,6 +56,8 @@ func (s *Server) listCatalog(w http.ResponseWriter, r *http.Request) {
 
 // @Summary downloadCatalogImage
 // @ID downloadCatalogImage
+// @Description Download the selected catalog image to this host. Use its ID from listCatalog; wait for the download job before relying on the image being available. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags catalog
 // @Security BearerAuth
 // @Produce json
@@ -67,6 +73,8 @@ func (s *Server) downloadCatalogImage(w http.ResponseWriter, r *http.Request) {
 
 // @Summary deleteCatalogImage
 // @ID deleteCatalogImage
+// @Description Delete the downloaded copy of a catalog image from this host. Use the catalog ID from listCatalog. Existing VM dependencies may prevent removal. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json"}
 // @Tags catalog
 // @Security BearerAuth
 // @Produce json

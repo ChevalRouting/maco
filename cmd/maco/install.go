@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/m-vinc/maco/pkg/nethelper"
+	nethelper "github.com/m-vinc/maco/pkg/net/helper"
 	"github.com/m-vinc/maco/pkg/service"
 	"github.com/m-vinc/maco/pkg/tlscert"
 	"github.com/rs/zerolog/log"
@@ -100,7 +100,7 @@ func installHelper(source, override, dst string) error {
 
 	sibling := filepath.Join(filepath.Dir(source), nethelper.Name)
 	if _, err := os.Stat(sibling); err != nil {
-		return fmt.Errorf("no embedded helper in this build and none beside %s; build with make or pass --helper", source)
+		return fmt.Errorf("no embedded helper in this build and none beside %s; build with task build or pass --helper", source)
 	}
 
 	return installBinary(sibling, dst)

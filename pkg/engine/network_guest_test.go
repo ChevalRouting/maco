@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-// Opt-in: boots a disposable overlay of a locally cached Ubuntu ARM64 image.
-// Uses user NAT only; no physical host interfaces or root helpers are changed.
 func TestGuestNetworkHotplug(t *testing.T) {
 	base := os.Getenv("MACO_TEST_NETWORK_GUEST_IMAGE")
 	if base == "" {
@@ -37,7 +35,7 @@ func TestGuestNetworkHotplug(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := e.CreateVM(CreateVMParams{Name: "hotplug-guest", Image: "ubuntu-24.04-arm64", CPUs: 2, MemoryMiB: 1024, DiskSizeGiB: 4, Network: "user", Username: "maco", SSHKey: strings.TrimSpace(string(public))})
+	m, err := e.CreateVM(CreateVMParams{Name: "hotplug-guest", Image: "ubuntu-24.04-arm64", CPUs: 2, MemoryMiB: 1024, DiskSizeGiB: 4, Network: "user"}, []string{strings.TrimSpace(string(public))})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,8 +113,6 @@ func TestGuestNetworkHotplug(t *testing.T) {
 	if !discovered {
 		t.Fatal("guest did not enumerate hot-added NIC")
 	}
-	// Cloud-init configures boot-time MACs only. Configure the newly added MAC
-	// explicitly inside this test guest, as users must do for their guest OS.
 	config := fmt.Sprintf("[Match]\nMACAddress=%s\n[Network]\nDHCP=ipv4\n[DHCPv4]\nRouteMetric=200\n", nic.MAC)
 	check(fmt.Sprintf("set -e; iface=$(%s); printf '%s' | sudo tee /run/systemd/network/90-hotplug.network >/dev/null; sudo networkctl reload; sudo ip link set \"$iface\" up; sudo networkctl reconfigure \"$iface\"", find, config))
 	traffic := false

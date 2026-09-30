@@ -72,16 +72,18 @@ func (s *Server) acceptAuthenticated(w http.ResponseWriter, r *http.Request) (*w
 
 // @Summary streamJobs
 // @ID streamJobs
+// @Description Continuous job notifications over WebSocket. Use listJobs, getJob, or the finite waitJob operation from MCP.
+// @x-maco {"expose":false,"readOnly":true,"transport":"unsupported"}
 // @Tags jobs
-// @Description WebSocket upgrade. Send {"token":"<JWT>"} as the first message within five seconds. Console and display carry binary frames; notification streams carry JobsEvent JSON.
 // @Success 101 "WebSocket upgrade"
 // @Router /api/jobs/stream [get]
 func (s *Server) streamJobs(w http.ResponseWriter, r *http.Request) { s.stream(w, r, false) }
 
 // @Summary streamEvents
 // @ID streamEvents
+// @Description Continuous resource notifications over WebSocket. Use read-only list and inspect operations from MCP.
+// @x-maco {"expose":false,"readOnly":true,"transport":"unsupported"}
 // @Tags events
-// @Description WebSocket upgrade. Send {"token":"<JWT>"} as the first message within five seconds. Console and display carry binary frames; notification streams carry JobsEvent JSON.
 // @Success 101 "WebSocket upgrade"
 // @Router /api/events [get]
 func (s *Server) streamEvents(w http.ResponseWriter, r *http.Request) { s.stream(w, r, true) }

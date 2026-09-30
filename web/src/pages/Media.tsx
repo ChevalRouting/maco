@@ -1,22 +1,24 @@
-import { useState } from 'react'
 import { PageHeader, PreferencesGroup, Tabs } from 'cheval-ui'
 import { listMedia } from '../api'
 import { useResource } from '../hooks/useResource'
+import { useTabParam } from '../hooks/useTabParam'
 import { MediaLibrary } from '../components/MediaLibrary'
 import { MediaRow } from '../components/MediaRow'
 import { CatalogImages } from '../components/CatalogImages'
 import { ResourceNotice } from '../components/ResourceNotice'
+import { TemplatesLibrary } from '../components/TemplatesLibrary'
 
-type MediaTab = 'image' | 'iso'
+type MediaTab = 'image' | 'iso' | 'template'
 
 const tabs: { key: MediaTab; label: string }[] = [
   { key: 'image', label: 'Images' },
   { key: 'iso', label: 'ISOs' },
+  { key: 'template', label: 'Templates' },
 ]
 
 export default function Media() {
   const media = useResource(listMedia, [], 'media')
-  const [tab, setTab] = useState<MediaTab>('image')
+  const [tab, setTab] = useTabParam<MediaTab>(['image', 'iso', 'template'], 'image')
   const isos = media.data.filter((m) => m.kind === 'iso')
   const images = media.data.filter((m) => m.kind === 'image')
 
@@ -62,6 +64,16 @@ export default function Media() {
             </p>
           )}
         </PreferencesGroup>
+      </div>
+
+      <div
+        role="tabpanel"
+        id="media-panel-template"
+        aria-labelledby="media-tab-template"
+        hidden={tab !== 'template'}
+        className="space-y-6"
+      >
+        <TemplatesLibrary />
       </div>
     </div>
   )

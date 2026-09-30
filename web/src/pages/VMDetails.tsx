@@ -1,8 +1,9 @@
 import { useCallback } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { PageHeader, Tabs } from 'cheval-ui'
 import { getVM, listNetworks, type VMView } from '../api'
 import { useResource } from '../hooks/useResource'
+import { useTabParam } from '../hooks/useTabParam'
 import { useEntity } from '../hooks/useEntity'
 import { useJobAction } from '../hooks/useJobAction'
 import { useSession } from '../hooks/useSession'
@@ -13,17 +14,19 @@ import { JobNotice } from '../components/JobNotice'
 import { VMUSB } from '../components/VMUSB'
 import { VMDisks } from '../components/VMDisks'
 import { VMHardware } from '../components/VMHardware'
+import { VMGuestSetup } from '../components/VMGuestSetup'
 import { VMWorkspace } from '../components/VMWorkspace'
 import { VMSnapshotsBackups } from '../components/VMSnapshotsBackups'
 
 import { VMMedia } from '../components/VMMedia'
 import { VMNetwork, vmNetworkName } from '../components/VMNetwork'
 
-type VMTab = 'overview' | 'compute' | 'disks' | 'usb' | 'media' | 'network' | 'backups'
+type VMTab = 'overview' | 'compute' | 'guest' | 'disks' | 'usb' | 'media' | 'network' | 'backups'
 
 const tabs: { key: VMTab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'compute', label: 'CPU & memory' },
+  { key: 'guest', label: 'Guest setup' },
   { key: 'network', label: 'Network' },
   { key: 'disks', label: 'Disks' },
   { key: 'usb', label: 'USB devices' },
@@ -34,9 +37,7 @@ const tabs: { key: VMTab; label: string }[] = [
 export default function VMDetails() {
   const { admin } = useSession()
   const visibleTabs = admin ? tabs : tabs.filter((item) => item.key === 'overview')
-  const [searchParams, setSearchParams] = useSearchParams()
-  const requested =
-    tabs.find((item) => item.key === searchParams.get('tab'))?.key || 'overview'
+  const [requested, selectTab] = useTabParam<VMTab>(tabs.map((item) => item.key), 'overview')
   const tab = admin ? requested : 'overview'
   const { id = '' } = useParams()
   const load = useCallback(() => getVM(id), [id])
@@ -45,16 +46,8 @@ export default function VMDetails() {
   const action = useJobAction()
   const manifest = vm.data?.manifest
 
-  function selectTab(value: VMTab) {
-    if (value === tab) return
-
-    const next = new URLSearchParams(searchParams)
-    next.set('tab', value)
-    setSearchParams(next)
-  }
-
   return (
-    <div className="flex h-full min-h-0 flex-col gap-6">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-6">
       <BackLink to="/">Back to virtual machines</BackLink>
       <PageHeader title={manifest?.name || 'Virtual machine'} />
       <ResourceNotice resource={vm} name="virtual machine" />
@@ -100,6 +93,8 @@ export default function VMDetails() {
                   <VMSnapshotsBackups vm={vm.data!} run={action.run} />
                 ) : item.key === 'disks' ? (
                   <VMDisks vm={vm.data!} run={action.run} />
+                ) : item.key === 'guest' ? (
+                  <VMGuestSetup vm={vm.data!} run={action.run} />
                 ) : (
                   <VMHardware vm={vm.data!} run={action.run} />
                 )}

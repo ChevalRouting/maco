@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/m-vinc/maco/pkg/l2"
+	"github.com/m-vinc/maco/pkg/net/datapath"
 	"github.com/m-vinc/maco/pkg/storage"
 )
 
@@ -82,7 +82,7 @@ func (d *Driver) StartPreparedContext(ctx context.Context, id string, prepare fu
 
 	for i := range spec.Interfaces {
 		if spec.Interfaces[i].Network == NetworkBridge {
-			spec.Interfaces[i].Socket = l2.Socket(filepath.Join(runDir, "interfaces", spec.Interfaces[i].ID))
+			spec.Interfaces[i].Socket = datapath.Socket(filepath.Join(runDir, "interfaces", spec.Interfaces[i].ID))
 		}
 	}
 
@@ -104,7 +104,7 @@ func (d *Driver) StartPreparedContext(ctx context.Context, id string, prepare fu
 				_ = stopNetworkHelpers(runDir)
 				return Status{}, err
 			}
-			if err := l2.Start(dir, nic.Bridge); err != nil {
+			if err := datapath.Start(dir, nic.Bridge); err != nil {
 				_ = stopNetworkHelpers(runDir)
 				return Status{}, err
 			}
@@ -358,12 +358,12 @@ func stopNetworkHelpers(runDir string) error {
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			if err := l2.Stop(filepath.Join(runDir, "interfaces", entry.Name())); err != nil {
+			if err := datapath.Stop(filepath.Join(runDir, "interfaces", entry.Name())); err != nil {
 				result = err
 			}
 		}
 	}
-	if err := l2.Stop(runDir); err != nil {
+	if err := datapath.Stop(runDir); err != nil {
 		result = err
 	}
 	if result == nil {

@@ -8,13 +8,15 @@ import {
   TableRow,
   TableHead,
 } from 'cheval-ui'
-import { Server } from 'lucide-react'
+import { Server, Power, RotateCcw } from 'lucide-react'
 import { listVMs, getHost, getDiskStorage } from '../api'
 import { useResource } from '../hooks/useResource'
 import { useJobAction } from '../hooks/useJobAction'
-import { CreateVMDialog } from '../components/CreateVMDialog'
+import { CreateVMChooser } from '../components/CreateVMChooser'
+import { HostPowerDialog, type HostPowerMode } from '../components/HostPowerDialog'
 import { HostStatCards } from '../components/HostStatCards'
 import { SplitButton } from '../components/SplitButton'
+import { Button } from 'cheval-ui'
 import { VMRow } from '../components/VMRow'
 import { ResourceNotice } from '../components/ResourceNotice'
 import { JobNotice } from '../components/JobNotice'
@@ -23,6 +25,7 @@ import { useSession } from '../hooks/useSession'
 export default function VMs() {
   const { admin } = useSession()
   const [creating, setCreating] = useState(false)
+  const [powerMode, setPowerMode] = useState<HostPowerMode | null>(null)
   const vms = useResource(listVMs, [], 'vms')
   const host = useResource(getHost, null, 'host')
   const storage = useResource(getDiskStorage, null, 'storage')
@@ -34,10 +37,20 @@ export default function VMs() {
         title="Virtual machines"
         action={
           admin ? (
-            <SplitButton
-              label="Create virtual machine"
-              onClick={() => setCreating(true)}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <SplitButton
+                label="Create virtual machine"
+                onClick={() => setCreating(true)}
+              />
+              <Button variant="outline" onClick={() => setPowerMode('reboot')}>
+                <RotateCcw className="h-4 w-4 shrink-0" />
+                Reboot host
+              </Button>
+              <Button variant="destructive" onClick={() => setPowerMode('poweroff')}>
+                <Power className="h-4 w-4 shrink-0" />
+                Power off host
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -49,7 +62,7 @@ export default function VMs() {
       <ResourceNotice resource={vms} name="virtual machines" />
       <JobNotice error={action.error} />
       {!vms.loading && (vms.data.length ? (
-        <Table>
+        <Table className="table-cards">
           <TableHeader>
             <TableRow>
               <TableHead>Preview</TableHead>
@@ -80,7 +93,10 @@ export default function VMs() {
           />
         )
       ))}
-      {creating && <CreateVMDialog onClose={() => setCreating(false)} />}
+      {creating && <CreateVMChooser onClose={() => setCreating(false)} />}
+      {powerMode && (
+        <HostPowerDialog mode={powerMode} onClose={() => setPowerMode(null)} />
+      )}
     </div>
   )
 }

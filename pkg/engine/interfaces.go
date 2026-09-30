@@ -1,7 +1,7 @@
 package engine
 
-import "github.com/m-vinc/maco/pkg/hostnet"
+import "github.com/m-vinc/maco/pkg/net/host"
 
-func (e *Engine) Interfaces() ([]hostnet.Port, error) {
-	return hostnet.Ports()
+func (e *Engine) Interfaces() ([]host.Port, error) {
+	return host.Ports()
 }

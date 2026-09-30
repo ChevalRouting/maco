@@ -21,8 +21,9 @@ type ConsoleAuth struct {
 
 // @Summary consoleVM
 // @ID consoleVM
+// @Description Interactive VM serial console over WebSocket. Not exposed as a request/response MCP tool.
+// @x-maco {"expose":false,"readOnly":true,"transport":"unsupported"}
 // @Tags vms
-// @Description WebSocket upgrade. Send {"token":"<JWT>"} as the first message within five seconds. Console and display carry binary frames; notification streams carry JobsEvent JSON.
 // @Param id path string true "id"
 // @Success 101 "WebSocket upgrade"
 // @Router /api/vms/{id}/console [get]
@@ -32,8 +33,9 @@ func (s *Server) consoleVM(w http.ResponseWriter, r *http.Request) {
 
 // @Summary displayVM
 // @ID displayVM
+// @Description Interactive VM graphical display over WebSocket. Not exposed as a request/response MCP tool.
+// @x-maco {"expose":false,"readOnly":true,"transport":"unsupported"}
 // @Tags vms
-// @Description WebSocket upgrade. Send {"token":"<JWT>"} as the first message within five seconds. Console and display carry binary frames; notification streams carry JobsEvent JSON.
 // @Param id path string true "id"
 // @Success 101 "WebSocket upgrade"
 // @Router /api/vms/{id}/display [get]

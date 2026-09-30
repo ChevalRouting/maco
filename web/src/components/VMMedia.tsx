@@ -120,7 +120,6 @@ export function VMMedia({ vm, onSaved }: { vm: VMView; onSaved: () => void }) {
 
   useEffect(() => {
     if ((vm.manifest.isos || []).length) ensureIsos()
-    // Otherwise the catalog stays unfetched until a CD-ROM Select is opened.
   }, [ensureIsos, vm.manifest.isos])
 
   function isoName(id: string): string {

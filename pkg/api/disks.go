@@ -10,6 +10,8 @@ import (
 
 // @Summary listDisks
 // @ID listDisks
+// @Description List known disk media and their ownership or attachment state. Supports pagination with page and page_size.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags disks
 // @Security BearerAuth
 // @Produce json
@@ -37,6 +39,8 @@ func (s *Server) listDisks(w http.ResponseWriter, r *http.Request) {
 
 // @Summary diskStorage
 // @ID diskStorage
+// @Description Read storage usage and available capacity for VM disks and media. Use before requesting large disk or media allocations.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags disks
 // @Security BearerAuth
 // @Produce json
@@ -56,6 +60,8 @@ func (s *Server) diskStorage(w http.ResponseWriter, r *http.Request) {
 
 // @Summary addDisk
 // @ID addDisk
+// @Description Add an additional disk to a VM. Size is in GiB. Use the VM ID from listVMs, and inspect the completed job and getVM for the attached disk ID. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -79,6 +85,8 @@ func (s *Server) addDisk(w http.ResponseWriter, r *http.Request) {
 
 // @Summary growDisk
 // @ID growDisk
+// @Description Increase the size of an additional VM disk using its disk ID from getVM. Size is in GiB; shrinking is unsupported and the guest may still need filesystem expansion. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -104,6 +112,8 @@ func (s *Server) growDisk(w http.ResponseWriter, r *http.Request) {
 
 // @Summary removeDisk
 // @ID removeDisk
+// @Description Remove an additional disk from a VM by disk ID. This can destroy disk data; inspect the disk and preserve needed data before removing it. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json

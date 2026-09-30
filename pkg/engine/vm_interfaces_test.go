@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -16,7 +17,7 @@ import (
 
 func TestVMInterfaceLifecycle(t *testing.T) {
 	e := testEngine(t)
-	m, err := e.CreateVM(CreateVMParams{Name: "interfaces", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4, Username: "maco"})
+	m, err := e.CreateVM(CreateVMParams{Name: "interfaces", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +25,7 @@ func TestVMInterfaceLifecycle(t *testing.T) {
 	if err := e.nets.Save(n); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.ManageInterface(m.ID, "vm.interface.add", InterfaceParams{Network: n.Name}); err != nil {
+	if err := e.ManageInterfaceContext(context.Background(), m.ID, "vm.interface.add", InterfaceParams{Network: n.Name}); err != nil {
 		t.Fatal(err)
 	}
 	stored, err := e.vms.Resolve(m.ID)
@@ -47,12 +48,12 @@ func TestVMInterfaceLifecycle(t *testing.T) {
 	if err := e.DestroyNetwork(n.ID); err == nil {
 		t.Fatal("destroyed network attached to second interface of running VM")
 	}
-	if err := e.ManageInterface(m.ID, "vm.interface.remove", InterfaceParams{ID: "net1"}); err == nil {
+	if err := e.ManageInterfaceContext(context.Background(), m.ID, "vm.interface.remove", InterfaceParams{ID: "net1"}); err == nil {
 		t.Fatal("changed running VM interface without a QMP connection")
 	}
 	_ = os.Remove(pidPath)
 	originalMAC := interfaces[1].MAC
-	if err := e.ManageInterface(m.ID, "vm.interface.update", InterfaceParams{ID: "net1", Network: "vmnet-host"}); err != nil {
+	if err := e.ManageInterfaceContext(context.Background(), m.ID, "vm.interface.update", InterfaceParams{ID: "net1", Network: "user"}); err != nil {
 		t.Fatal(err)
 	}
 	stored, _ = e.vms.Resolve(m.ID)
@@ -60,12 +61,12 @@ func TestVMInterfaceLifecycle(t *testing.T) {
 		t.Fatal("network change altered MAC")
 	}
 	for _, params := range []InterfaceParams{{Network: "missing"}, {Network: "user", MAC: "not-a-mac"}, {Network: "user", MAC: interfaces[0].MAC}, {Network: "user", MAC: "01:00:00:00:00:01"}} {
-		if e.ManageInterface(m.ID, "vm.interface.add", params) == nil {
+		if e.ManageInterfaceContext(context.Background(), m.ID, "vm.interface.add", params) == nil {
 			t.Fatal("accepted invalid interface")
 		}
 	}
 	for _, id := range []string{"net0", "net1"} {
-		if err := e.ManageInterface(m.ID, "vm.interface.remove", InterfaceParams{ID: id}); err != nil {
+		if err := e.ManageInterfaceContext(context.Background(), m.ID, "vm.interface.remove", InterfaceParams{ID: id}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -76,7 +77,7 @@ func TestVMInterfaceLifecycle(t *testing.T) {
 	if stored.Interfaces == nil || len(stored.EffectiveInterfaces()) != 0 {
 		t.Fatal("removed interfaces resurrected legacy default")
 	}
-	if err := e.ManageInterface(m.ID, "vm.interface.add", InterfaceParams{Network: "user"}); err != nil {
+	if err := e.ManageInterfaceContext(context.Background(), m.ID, "vm.interface.add", InterfaceParams{Network: "user"}); err != nil {
 		t.Fatal(err)
 	}
 	stored, _ = e.vms.Resolve(m.ID)
@@ -100,7 +101,7 @@ func TestGuestInterfacesConfig(t *testing.T) {
 
 func TestPendingHotplugProtectsBothNetworks(t *testing.T) {
 	e := testEngine(t)
-	m, err := e.CreateVM(CreateVMParams{Name: "pending-network", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4, Username: "maco"})
+	m, err := e.CreateVM(CreateVMParams{Name: "pending-network", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +129,7 @@ func TestPendingHotplugProtectsBothNetworks(t *testing.T) {
 			t.Fatalf("destroyed pending network %s", n.Name)
 		}
 	}
-	if err := e.ManageInterface(m.ID, "vm.interface.update", InterfaceParams{ID: "net0", Network: "user"}); !errors.Is(err, vm.ErrNetworkStateUncertain) {
+	if err := e.ManageInterfaceContext(context.Background(), m.ID, "vm.interface.update", InterfaceParams{ID: "net0", Network: "user"}); !errors.Is(err, vm.ErrNetworkStateUncertain) {
 		t.Fatalf("allowed no-op while NIC state uncertain: %v", err)
 	}
 }

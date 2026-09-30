@@ -132,6 +132,8 @@ type CurrentUser struct {
 
 // @Summary currentUser
 // @ID currentUser
+// @Description Read the authenticated account name and role. Viewer accounts can inspect resources; administrator access is required for VM and host mutations.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags login
 // @Security BearerAuth
 // @Produce json
@@ -155,6 +157,8 @@ type ChangePasswordRequest struct {
 
 // @Summary changePassword
 // @ID changePassword
+// @Description Change the current account password by supplying current_password and new_password. Existing login sessions may become invalid. The response contains a new login token; treat it as a secret.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json"}
 // @Tags login
 // @Security BearerAuth
 // @Produce json

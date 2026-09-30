@@ -32,6 +32,14 @@ type User struct {
 	CreatedAt    int64  `json:"created_at"`
 }
 
+type UserSshKey struct {
+	ID        string `json:"id"`
+	UserID    string `json:"user_id"`
+	Name      string `json:"name"`
+	PublicKey string `json:"public_key"`
+	CreatedAt int64  `json:"created_at"`
+}
+
 type VmState struct {
 	ID       string `json:"id"`
 	Phase    string `json:"phase"`

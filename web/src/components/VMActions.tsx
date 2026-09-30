@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertDialog, Button } from 'cheval-ui'
-import { ChevronDown, LoaderCircle, Monitor, Play, Power, Square, Terminal, Trash2 } from 'lucide-react'
-import { deleteVM, shutdownVM, startVM, stopVM, type Job, type VMView } from '../api'
+import { ChevronDown, LoaderCircle, Monitor, Play, Power, RotateCcw, Square, Terminal, Trash2 } from 'lucide-react'
+import { deleteVM, rebootVM, shutdownVM, startVM, stopVM, type Job, type VMView } from '../api'
 import { useRowAction } from '../hooks/useRowAction'
 import { useSession } from '../hooks/useSession'
 import { ActionStatus } from './ActionStatus'
@@ -15,6 +15,7 @@ export function VMActions({ vm, run }: { vm: VMView; run: (action: () => Promise
   const action = useRowAction(id, name, 'vm', run)
   const [open, setOpen] = useState(false)
   const [forceStop, setForceStop] = useState(false)
+  const [reboot, setReboot] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const [consoleMode, setConsoleMode] = useState<ConsoleMode | null>(null)
   const [position, setPosition] = useState({ top: 0, left: 0 })
@@ -37,7 +38,7 @@ export function VMActions({ vm, run }: { vm: VMView; run: (action: () => Promise
       const margin = 8
       const fitsRight = rect.left + menuWidth <= window.innerWidth - margin
       const left = fitsRight ? rect.left : rect.right - menuWidth
-      const estimatedHeight = running ? 190 : 150
+      const estimatedHeight = running ? 230 : 150
       const top = rect.bottom + estimatedHeight + margin < window.innerHeight ? rect.bottom + 6 : Math.max(margin, rect.top - estimatedHeight - 6)
       setPosition({ top, left: Math.max(margin, Math.min(left, window.innerWidth - menuWidth - margin)) })
     }
@@ -154,6 +155,20 @@ export function VMActions({ vm, run }: { vm: VMView; run: (action: () => Promise
               disabled={action.busy}
               onClick={() => {
                 close()
+                setReboot(true)
+              }}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reboot…
+            </button>
+          )}
+          {running && (
+            <button
+              role="menuitem"
+              className={itemClass}
+              disabled={action.busy}
+              onClick={() => {
+                close()
                 setForceStop(true)
               }}
             >
@@ -214,6 +229,18 @@ export function VMActions({ vm, run }: { vm: VMView; run: (action: () => Promise
         title={`Force Stop ${name}?`}
         description="This immediately stops the VM. Unsaved work inside the guest may be lost. Try Shut Down first."
         confirmLabel="Force Stop"
+      />
+      <AlertDialog
+        open={reboot}
+        onCancel={() => setReboot(false)}
+        onConfirm={async () => {
+          const job = await action.execute('vm.reboot', () => rebootVM(id))
+          if (job) setReboot(false)
+        }}
+        busy={action.busy}
+        title={`Reboot ${name}?`}
+        description="This restarts the VM. Unsaved work inside the guest may be lost."
+        confirmLabel="Reboot"
       />
       <AlertDialog
         open={confirm}

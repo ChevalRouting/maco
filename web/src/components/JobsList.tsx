@@ -144,7 +144,7 @@ export function JobsList({ resource, highlightedJob }: JobsListProps) {
         />
       ) : (
         <>
-          <Table>
+          <Table className="table-cards">
             <TableHeader>
               <TableRow>
                 <TableHead>Action</TableHead>

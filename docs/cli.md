@@ -1,7 +1,7 @@
 # CLI reference
 
 All commands accept the global flags `--data-dir` (default `$MACO_DATA_DIR` or
-`~/Library/Application Support/maco`) and `--log-level` (`debug`, `info`, `warn`,
+`/Library/Application Support/maco`) and `--log-level` (`debug`, `info`, `warn`,
 `error`).
 
 ## Images
@@ -61,7 +61,7 @@ prompts to re-edit or abort (visudo style).
 On first `vm start`, maco extracts its embedded maco-branded UEFI firmware into
 `<data-dir>/firmware/` and reuses it thereafter, so it does not depend on
 firmware installed on the host. The firmware carries the maco boot logo, shown
-during guest UEFI startup. Rebuild it with `make firmware-build` (Docker).
+during guest UEFI startup. Rebuild it with `task firmware-build` (Docker).
 
 ## Networks
 
@@ -148,7 +148,7 @@ maco user rm bob
 ## Web UI and API
 
 ```bash
-make build-ui                                    # build maco with the embedded SPA
+task build-ui                                    # build maco with the embedded SPA
 MACO_ADMIN_PASSWORD=changeme maco serve --addr :8080
 maco serve --dev-dir web/dist                    # serve an unembedded build (dev)
 ```

@@ -170,7 +170,7 @@ export function CreateNetworkDialog({ network, onClose }: CreateNetworkDialogPro
             value={form.mode}
             choices={networkModes}
             help={networkModes.find(item => item.value === form.mode)?.help}
-            onChange={(mode) => setForm({ ...form, mode })}
+            onChange={(mode) => setForm({ ...form, mode: mode as NetworkForm['mode'] })}
           /> : <p className="px-4 py-2 text-sm text-muted-foreground">Connectivity: {networkModeName(network.mode)}</p>}
           {form.mode === 'bridge' && (
             <>

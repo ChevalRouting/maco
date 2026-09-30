@@ -1,0 +1,207 @@
+version: '3'
+
+vars:
+  BINARY: '{{.BINARY | default "maco"}}'
+  PKG: '{{.PKG | default "./cmd/maco"}}'
+  VERSION: '{{.VERSION | default "dev"}}'
+  LDFLAGS: '{{.LDFLAGS | default (printf "-X main.VERSION=%s" .VERSION)}}'
+  GOFLAGS: '{{.GOFLAGS | default ""}}'
+  GOTAGS: '{{.GOTAGS | default ""}}'
+  EMBED: '{{.EMBED | default "0"}}'
+  GOOS: '{{.GOOS | default "darwin"}}'
+  GOARCH: '{{.GOARCH | default "arm64"}}'
+  CC: '{{.CC | default "cc"}}'
+  FIRMWARE_ASSET: pkg/vm/firmware/assets/maco-aarch64-code.fd.bz2
+  HELPER_ASSET: pkg/net/helper/assets/maco-net-helper
+  PKG_ID: '{{.PKG_ID | default "com.maco.pkg"}}'
+  PKG_STAGING: build/pkgroot
+  PKG_SCRIPTS: build/scripts
+  SWAG_VERSION: v2.0.0-rc6
+
+env:
+  GOOS: '{{.GOOS}}'
+  GOARCH: '{{.GOARCH}}'
+
+tasks:
+  default:
+    desc: Build the maco binary and native networking helper
+    cmds:
+      - task: build
+
+  build:
+    desc: Build maco (EMBED=1 builds and embeds the web UI)
+    vars:
+      TAGFLAGS: '{{if eq .EMBED "1"}}-tags {{printf "prod,%s" .GOTAGS | trimSuffix "," | shellQuote}}{{else if .GOTAGS}}-tags {{.GOTAGS | shellQuote}}{{end}}'
+    cmds:
+      - task: '{{if eq .EMBED "1"}}web-build{{else}}maco-net-helper{{end}}'
+      - go build {{.GOFLAGS}} {{.TAGFLAGS}} -ldflags {{.LDFLAGS | shellQuote}} -o {{.BINARY | shellQuote}} {{.PKG | shellQuote}}
+
+  build-mcp:
+    desc: Build the standalone stdio MCP server
+    dir: mcp
+    cmds:
+      - go build {{.GOFLAGS}} -ldflags {{.LDFLAGS | shellQuote}} -o ../maco-mcp ./cmd/maco-mcp
+
+  build-ui:
+    desc: Build maco with the embedded web UI
+    cmds:
+      - task: build
+        vars:
+          EMBED: '1'
+
+  deploy:
+    interactive: true
+    desc: Build production maco, upload over SSH, sign, and reinstall (HOST=user@mac)
+    requires:
+      vars: [HOST]
+    preconditions:
+      - sh: 'test -n {{.HOST | shellQuote}}'
+        msg: Set HOST to an SSH hostname or user@host
+      - sh: command -v ssh && command -v scp
+        msg: SSH and SCP are required
+    cmds:
+      - task: build-ui
+      - bash tools/deploy.sh {{.HOST | shellQuote}} {{.BINARY | shellQuote}} {{.CLI_ARGS}}
+
+  web-build:
+    desc: Build the React/Vite frontend into pkg/api/dist
+    cmds:
+      - task: maco-net-helper
+      - npm --prefix web install
+      - npm --prefix web run build
+
+  web-dev:
+    desc: Run the Vite dev server with HMR and the local API proxy
+    dir: web
+    cmds:
+      - npm install
+      - npm run dev
+
+  firmware-build:
+    desc: Build the embedded ARM64 UEFI firmware if stale (Docker)
+    method: timestamp
+    sources:
+      - tools/firmware/Dockerfile
+      - tools/firmware/logo.py
+      - tools/firmware/strip-network.sh
+      - web/public/logo.svg
+    generates:
+      - '{{.FIRMWARE_ASSET}}'
+    cmds:
+      - docker build --file tools/firmware/Dockerfile --output type=local,dest=pkg/vm/firmware/assets .
+      - touch {{.FIRMWARE_ASSET | shellQuote}}
+
+  firmware-rebuild:
+    desc: Force a rebuild of the embedded ARM64 UEFI firmware (Docker)
+    cmds:
+      - docker build --no-cache --file tools/firmware/Dockerfile --output type=local,dest=pkg/vm/firmware/assets .
+
+  maco-net-helper:
+    desc: Build and copy the native networking helper
+    cmds:
+      - mkdir -p {{dir .HELPER_ASSET | shellQuote}}
+      - '{{.CC}} -O2 -Wall -Wextra -Werror pkg/net/datapath/native/helper.c -o {{.HELPER_ASSET | shellQuote}}'
+      - cp {{.HELPER_ASSET | shellQuote}} maco-net-helper
+
+  test-network-helper:
+    desc: Run the native networking helper tests with sanitizers
+    cmds:
+      - '{{.CC}} -g -Wall -Wextra -Werror -Wno-unused-function -fsanitize=address,undefined tools/l2-validation/batching-test.c -o /private/tmp/maco-batching-test'
+      - /private/tmp/maco-batching-test
+
+  test:
+    desc: Run native helper and deployment tests, Go vet, and Go tests
+    cmds:
+      - task: test-network-helper
+      - task: test-deploy
+      - go vet ./...
+      - go test ./...
+      - task: test-mcp
+
+  test-mcp:
+    desc: Vet and test the independent MCP module
+    dir: mcp
+    cmds:
+      - go vet ./...
+      - go test ./...
+
+  test-deploy:
+    desc: Test deployment scripts with mocked SSH, signing, and sudo
+    cmds:
+      - python3 tools/deploy_test.py
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  tidy:
+    desc: Tidy Go module dependencies
+    cmds:
+      - go mod tidy
+      - task: tidy-mcp
+
+  tidy-mcp:
+    desc: Tidy independent MCP module dependencies
+    dir: mcp
+    cmds:
+      - go mod tidy
+
+  sqlc:
+    desc: Regenerate type-safe database code
+    cmds:
+      - sqlc generate
+
+  run:
+    desc: Build then run maco (task run -- vm list, or ARGS="vm list")
+    cmds:
+      - task: build
+      - '{{printf "./%s" .BINARY | shellQuote}} {{.ARGS | default .CLI_ARGS}}'
+
+  pkg:
+    desc: Build an unsigned macOS installer (VERSION=x.y.z)
+    cmds:
+      - task: build-ui
+      - rm -rf build {{printf "maco-%s.pkg" .VERSION | shellQuote}}
+      - mkdir -p {{printf "%s/usr/local/bin" .PKG_STAGING | shellQuote}} {{.PKG_SCRIPTS | shellQuote}}
+      - cp {{.BINARY | shellQuote}} {{printf "%s/usr/local/bin/maco" .PKG_STAGING | shellQuote}}
+      - cp tools/pkg/preinstall {{printf "%s/preinstall" .PKG_SCRIPTS | shellQuote}}
+      - cp tools/pkg/postinstall {{printf "%s/postinstall" .PKG_SCRIPTS | shellQuote}}
+      - chmod +x {{printf "%s/preinstall" .PKG_SCRIPTS | shellQuote}} {{printf "%s/postinstall" .PKG_SCRIPTS | shellQuote}}
+      - xattr -cr {{.PKG_STAGING | shellQuote}}
+      - pkgbuild --root {{.PKG_STAGING | shellQuote}} --scripts {{.PKG_SCRIPTS | shellQuote}} --identifier {{.PKG_ID | shellQuote}} --version {{.VERSION | shellQuote}} --install-location / build/maco-component.pkg
+      - productbuild --package build/maco-component.pkg {{printf "maco-%s.pkg" .VERSION | shellQuote}}
+      - echo {{printf "built maco-%s.pkg" .VERSION | shellQuote}}
+
+  clean:
+    desc: Remove binaries and installer build output
+    cmds:
+      - rm -rf build maco-*.pkg
+      - rm -f {{.BINARY | shellQuote}} maco-net-helper maco-mcp
+
+  help:
+    desc: List available tasks
+    cmds:
+      - '{{.TASK_EXE | shellQuote}} --list'
+
+  docs:
+    desc: Generate the API contract and frontend client
+    cmds:
+      - task: api-generate
+
+  api-tools:
+    desc: Install the pinned Go OpenAPI generator
+    cmds:
+      - go install github.com/swaggo/swag/v2/cmd/swag@{{.SWAG_VERSION}}
+
+  api-generate:
+    desc: Regenerate OpenAPI 3.1 and frontend client types from Go handlers
+    cmds:
+      - swag init --v3.1 -g doc.go -d ./pkg/api --parseDependency --parseInternal --requiredByDefault --outputTypes json -o pkg/api/docs
+      - python3 tools/openapi/normalize.py pkg/api/docs/swagger.json
+      - npm --prefix web run api:generate
+
+  api-check:
+    desc: Verify the committed spec and client match Go handlers and routes
+    cmds:
+      - sh tools/openapi/check.sh

@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { AppShell, Button, NoticeBanner, useTheme, type NavGroup } from 'cheval-ui'
-import { CircleUser, Code, LogOut, Moon, Server, Network as NetworkIcon, HardDrive, ListTodo, SquareTerminal, Sun } from 'lucide-react'
+import { AppShell, Button, MobileNav, NoticeBanner, cn, useTheme, type MobileTab, type NavGroup } from 'cheval-ui'
+import { CircleUser, Code, LogOut, Moon, MoreHorizontal, Server, Network as NetworkIcon, HardDrive, ListTodo, SquareTerminal, Sun } from 'lucide-react'
 import { clearToken, getToken } from './api'
 import { Logo } from './Logo'
 import Login from './pages/Login'
@@ -16,7 +16,9 @@ import Api from './pages/Api'
 import Console from './pages/Console'
 import { JobsProvider } from './components/JobsProvider'
 import { JobsPanel } from './components/JobsPanel'
+import { MobileJobsIndicator } from './components/MobileJobsIndicator'
 import { SessionProvider, useSession } from './hooks/useSession'
+import { useStandaloneViewport } from './hooks/useStandaloneViewport'
 
 function navigation(admin: boolean): NavGroup[] {
   return [
@@ -32,6 +34,61 @@ function navigation(admin: boolean): NavGroup[] {
       ],
     },
   ]
+}
+
+const MAX_MOBILE_TABS = 5
+const MOBILE_LABELS: Record<string, string> = {
+  '/': 'VMs',
+  '/media': 'Media',
+}
+
+function logout() {
+  clearToken()
+  Object.keys(sessionStorage)
+    .filter((key) => key.startsWith('maco:draft:'))
+    .forEach((key) => sessionStorage.removeItem(key))
+  window.location.assign('/login')
+}
+
+function mobileTabs(admin: boolean): MobileTab[] {
+  const items = navigation(admin)[0].items
+  const primary = items.slice(0, MAX_MOBILE_TABS - 1)
+  const overflow = items.slice(MAX_MOBILE_TABS - 1)
+  const tabs: MobileTab[] = primary.map((item) => ({
+    key: item.to,
+    label: MOBILE_LABELS[item.to] ?? item.label,
+    icon: item.icon,
+    to: item.to,
+    exact: item.exact,
+  }))
+  tabs.push({ key: '__more__', label: 'More', icon: MoreHorizontal, items: overflow, sheet: <MoreExtras /> })
+  return tabs
+}
+
+function MoreExtras() {
+  const session = useSession()
+  const { theme, toggle } = useTheme()
+  const name = session.user?.username || 'Account'
+  const themeLabel = theme === 'dark' ? 'Light mode' : 'Dark mode'
+  const rowClass =
+    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted/60 hover:text-foreground'
+
+  return (
+    <div className="mt-2 space-y-0.5 border-t border-border pt-2">
+      <NavLink to="/profile" className={({ isActive }) => cn(rowClass, isActive && 'bg-primary/10 text-primary')}>
+        <CircleUser className="h-4 w-4 shrink-0 opacity-60" />
+        <span className="truncate">{name}</span>
+      </NavLink>
+      <button onClick={toggle} className={rowClass}>
+        {theme === 'dark' ? <Sun className="h-4 w-4 shrink-0 opacity-60" /> : <Moon className="h-4 w-4 shrink-0 opacity-60" />}
+        {themeLabel}
+      </button>
+      <button onClick={logout} className={rowClass}>
+        <LogOut aria-hidden="true" className="h-4 w-4 shrink-0 opacity-60" />
+        Logout
+      </button>
+    </div>
+  )
 }
 
 function sidebarButtonClass(collapsed: boolean) {
@@ -62,14 +119,6 @@ function AccountLink({ collapsed }: { collapsed: boolean }) {
 function SidebarFooter({ collapsed }: { collapsed: boolean }) {
   const { theme, toggle } = useTheme()
 
-  function logout() {
-    clearToken()
-    Object.keys(sessionStorage)
-      .filter((key) => key.startsWith('maco:draft:'))
-      .forEach((key) => sessionStorage.removeItem(key))
-    window.location.assign('/login')
-  }
-
   const themeLabel = theme === 'dark' ? 'Light mode' : 'Dark mode'
 
   return (
@@ -96,6 +145,15 @@ function SessionShell(props: Omit<React.ComponentProps<typeof AppShell>, 'nav'>)
       showThemeToggle={false}
       sidebarTop={({ collapsed }) => <AccountLink collapsed={collapsed} />}
       sidebarFooter={({ collapsed }) => <SidebarFooter collapsed={collapsed} />}
+      mobileNavigation={
+        <>
+          <div className="hidden md:block">
+            <JobsPanel />
+          </div>
+          <MobileNav tabs={mobileTabs(session.admin)} />
+        </>
+      }
+      mobileOverlay={<MobileJobsIndicator />}
     >
       {session.loading ? (
         <p role="status">Loading account permissions…</p>
@@ -122,19 +180,22 @@ function Shell() {
   return (
     <SessionProvider>
       <JobsProvider>
-        <SessionShell
-          title="maco"
-          logo={Logo}
-          mobileNavigation={<JobsPanel />}
-        >
-          <Outlet />
-        </SessionShell>
+        <div className="app-frame">
+          <SessionShell
+            title="maco"
+            logo={Logo}
+          >
+            <Outlet />
+          </SessionShell>
+        </div>
       </JobsProvider>
     </SessionProvider>
   )
 }
 
 export default function App() {
+  useStandaloneViewport()
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />

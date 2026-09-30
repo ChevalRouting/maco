@@ -53,6 +53,10 @@ func newServeCommand() *cobra.Command {
 				}
 			}
 
+			if _, err := eng().SeedDefaultTemplates(cmd.Context()); err != nil {
+				log.Warn().Err(err).Msg("seed default templates")
+			}
+
 			static := resolveStaticFS(devDir)
 			queue, err := jobs.New(eng(), redisURL)
 			if err != nil {
@@ -66,11 +70,9 @@ func newServeCommand() *cobra.Command {
 			defer queue.Close()
 
 			if reconcile {
-				go func() {
-					if err := eng().Reconcile(cmd.Context()); err != nil {
-						log.Error().Err(err).Msg("reconcile autostart VMs")
-					}
-				}()
+				if _, err := queue.Submit(cmd.Context(), jobs.Payload{Action: "boot.reconcile", Target: "host"}); err != nil {
+					log.Error().Err(err).Msg("enqueue boot reconcile")
+				}
 			}
 
 			certFile, keyFile := "", ""

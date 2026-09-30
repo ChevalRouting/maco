@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/m-vinc/maco/pkg/network"
+	"github.com/m-vinc/maco/pkg/net/vnet"
 	"github.com/m-vinc/maco/pkg/types"
 )
 
@@ -17,7 +17,7 @@ func TestUpdateNetworkPreservesOwnershipAndApplies(t *testing.T) {
 	}
 	called := false
 	failure := errors.New("host unavailable")
-	e.ensureNetwork = func(store *network.Store, updated *types.NetworkManifest, dry bool) error {
+	e.ensureNetwork = func(store *vnet.Store, updated *types.NetworkManifest, dry bool) error {
 		called = true
 		if dry || updated.ID != n.ID || updated.Device != n.Device || !updated.Owned || updated.AppliedAddress != n.AppliedAddress || !reflect.DeepEqual(updated.AppliedVLANs, n.AppliedVLANs) || !reflect.DeepEqual(updated.AppliedMembers, n.AppliedMembers) {
 			t.Fatalf("lost runtime state: %+v", updated)
@@ -41,7 +41,7 @@ func TestUpdateNetworkPreservesOwnershipAndApplies(t *testing.T) {
 			t.Fatal("invalid edit changed manifest")
 		}
 	}
-	e.ensureNetwork = func(_ *network.Store, _ *types.NetworkManifest, _ bool) error { return nil }
+	e.ensureNetwork = func(_ *vnet.Store, _ *types.NetworkManifest, _ bool) error { return nil }
 	if _, err := e.UpdateNetwork(n.ID, params); err != nil {
 		t.Fatal(err)
 	}

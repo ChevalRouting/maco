@@ -11,7 +11,7 @@ import (
 
 func TestBackupScheduleRoundTrip(t *testing.T) {
 	e := testEngine(t)
-	m := &types.VMManifest{ID: uuid.NewString(), Name: "epsilon", Image: "img", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 10, Username: "maco"}
+	m := &types.VMManifest{ID: uuid.NewString(), Name: "epsilon", Image: "img", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 10}
 	if err := e.vms.Save(m); err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestPruneBackupsKeepLast(t *testing.T) {
 		t.Skip("qemu-img not installed")
 	}
 	e := testEngine(t)
-	m := &types.VMManifest{ID: uuid.NewString(), Name: "zeta", Image: "img", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 10, Username: "maco"}
+	m := &types.VMManifest{ID: uuid.NewString(), Name: "zeta", Image: "img", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 10}
 	seedVMDisks(t, e, m, []string{"disk.qcow2"})
 
 	for i := 0; i < 3; i++ {

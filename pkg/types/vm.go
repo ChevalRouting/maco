@@ -14,10 +14,38 @@ type VMUSBAssignment struct {
 }
 
 type VMInterface struct {
-	ID        string   `yaml:"id" json:"id" validate:"required"`
-	Network   string   `yaml:"network" json:"network"`
-	MAC       string   `yaml:"mac,omitempty" json:"mac,omitempty" validate:"omitempty,mac" binding:"optional"`
-	Addresses []string `yaml:"addresses,omitempty" json:"addresses,omitempty" validate:"dive,cidr" binding:"optional"`
+	ID          string   `yaml:"id" json:"id" validate:"required"`
+	Network     string   `yaml:"network" json:"network"`
+	MAC         string   `yaml:"mac,omitempty" json:"mac,omitempty" validate:"omitempty,mac" binding:"optional"`
+	Addresses   []string `yaml:"addresses,omitempty" json:"addresses,omitempty" validate:"dive,cidr" binding:"optional"`
+	Gateway     string   `yaml:"gateway,omitempty" json:"gateway,omitempty" validate:"omitempty,ip" binding:"optional"`
+	Nameservers []string `yaml:"nameservers,omitempty" json:"nameservers,omitempty" validate:"dive,ip" binding:"optional"`
+}
+
+const (
+	ProvisionerNone      = "none"
+	ProvisionerCloudInit = "cloud-init"
+	ProvisionerIgnition  = "ignition"
+	GuestModeRaw         = "raw"
+)
+
+// @Description Guest provisioning configuration. Discover supported provisioners and modes from listCatalog before creating a VM.
+type GuestSetup struct {
+	Provisioner string      `yaml:"provisioner,omitempty" json:"provisioner,omitempty" binding:"optional"`
+	Mode        string      `yaml:"mode,omitempty" json:"mode,omitempty" binding:"optional"`
+	Hostname    string      `yaml:"hostname,omitempty" json:"hostname,omitempty" validate:"omitempty,hostname_rfc1123" binding:"optional"`
+	Raw         string      `yaml:"raw,omitempty" json:"raw,omitempty" binding:"optional"`
+	Files       []GuestFile `yaml:"files,omitempty" json:"files,omitempty" validate:"dive" binding:"optional"`
+}
+
+type GuestFile struct {
+	Name    string `yaml:"name" json:"name" validate:"required"`
+	Content string `yaml:"content" json:"content" binding:"optional"`
+}
+
+type GuestCapability struct {
+	Provisioner string `json:"provisioner"`
+	Raw         bool   `json:"raw"`
 }
 
 type VMManifest struct {
@@ -26,6 +54,7 @@ type VMManifest struct {
 	BootOrder   []string          `yaml:"boot_order,omitempty" json:"boot_order,omitempty" binding:"optional"`
 	Disks       []VMDisk          `yaml:"disks,omitempty" json:"disks,omitempty" validate:"dive" binding:"optional"`
 	USB         []VMUSBAssignment `yaml:"usb,omitempty" json:"usb,omitempty" validate:"dive" binding:"optional"`
+	GuestSetup  *GuestSetup       `yaml:"guest_setup,omitempty" json:"guest_setup,omitempty" binding:"optional"`
 	ID          string            `yaml:"id" json:"id" validate:"required"`
 	Name        string            `yaml:"name" json:"name" validate:"required,hostname_rfc1123"`
 	Image       string            `yaml:"image,omitempty" json:"image"`
@@ -34,9 +63,9 @@ type VMManifest struct {
 	DiskSizeGiB int               `yaml:"disk_size_gib" json:"disk_size_gib" validate:"min=1"`
 	Network     string            `yaml:"network,omitempty" json:"network,omitempty" binding:"optional"`
 	Addresses   []string          `yaml:"addresses,omitempty" json:"addresses,omitempty" validate:"dive,cidr" binding:"optional"`
-	Username    string            `yaml:"username" json:"username" validate:"required"`
-	Password    string            `yaml:"password,omitempty" json:"-"`
-	SSHKey      string            `yaml:"ssh_key,omitempty" json:"ssh_key,omitempty" binding:"optional"`
+	Gateway     string            `yaml:"gateway,omitempty" json:"gateway,omitempty" validate:"omitempty,ip" binding:"optional"`
+	Nameservers []string          `yaml:"nameservers,omitempty" json:"nameservers,omitempty" validate:"dive,ip" binding:"optional"`
+	SSHKeys     []string          `yaml:"ssh_keys,omitempty" json:"ssh_keys,omitempty" binding:"optional"`
 	Autostart   bool              `yaml:"autostart,omitempty" json:"autostart,omitempty" binding:"optional"`
 }
 
@@ -55,6 +84,20 @@ type VMState struct {
 	PID      int
 	BootTime int64
 	SeenAt   int64
+}
+
+func (m *VMManifest) EffectiveGuestSetup() GuestSetup {
+	setup := GuestSetup{}
+	if m.GuestSetup != nil {
+		setup = *m.GuestSetup
+	}
+	if setup.Provisioner == "" {
+		setup.Provisioner = ProvisionerCloudInit
+	}
+	if setup.Mode == "" {
+		setup.Mode = GuestModeRaw
+	}
+	return setup
 }
 
 func (m *VMManifest) EffectiveBootOrder() []string {
@@ -92,5 +135,5 @@ func (m *VMManifest) EffectiveInterfaces() []VMInterface {
 	if m.Interfaces != nil {
 		return *m.Interfaces
 	}
-	return []VMInterface{{ID: "net0", Network: m.Network, Addresses: m.Addresses}}
+	return []VMInterface{{ID: "net0", Network: m.Network, Addresses: m.Addresses, Gateway: m.Gateway, Nameservers: m.Nameservers}}
 }

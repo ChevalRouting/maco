@@ -57,6 +57,21 @@
                 ],
                 "type": "object"
             },
+            "api.CreateSSHKeyRequest": {
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "public_key": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name",
+                    "public_key"
+                ],
+                "type": "object"
+            },
             "api.CurrentUser": {
                 "properties": {
                     "role": {
@@ -80,6 +95,17 @@
                 },
                 "required": [
                     "error"
+                ],
+                "type": "object"
+            },
+            "api.HostPowerRequest": {
+                "properties": {
+                    "force": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "force"
                 ],
                 "type": "object"
             },
@@ -148,6 +174,29 @@
                 },
                 "required": [
                     "status"
+                ],
+                "type": "object"
+            },
+            "api.TemplateRequest": {
+                "properties": {
+                    "description": {
+                        "type": "string",
+                        "description": "Optional human description of the template."
+                    },
+                    "name": {
+                        "maxLength": 63,
+                        "minLength": 1,
+                        "type": "string",
+                        "description": "Unique template name. Use an RFC 1123 hostname such as web-server."
+                    },
+                    "spec": {
+                        "$ref": "#/components/schemas/engine.CreateVMParams",
+                        "description": "Machine profile: guest provisioning plus hardware defaults. Same shape as createVM without name. The spec name field is ignored."
+                    }
+                },
+                "required": [
+                    "name",
+                    "spec"
                 ],
                 "type": "object"
             },
@@ -252,8 +301,22 @@
                     "id": {
                         "type": "string"
                     },
+                    "provisioning": {
+                        "items": {
+                            "$ref": "#/components/schemas/types.GuestCapability"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "size_bytes": {
                         "type": "integer"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     },
                     "version": {
                         "type": "string"
@@ -266,49 +329,93 @@
                     "distro",
                     "downloaded",
                     "id",
+                    "provisioning",
                     "size_bytes",
+                    "tags",
                     "version"
+                ],
+                "type": "object"
+            },
+            "engine.CreateDiskParams": {
+                "properties": {
+                    "name": {
+                        "minLength": 1,
+                        "type": "string",
+                        "description": "Name for this additional disk."
+                    },
+                    "size_gib": {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Disk capacity in GiB."
+                    }
+                },
+                "required": [
+                    "name",
+                    "size_gib"
                 ],
                 "type": "object"
             },
             "engine.CreateNetworkParams": {
                 "properties": {
                     "address": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Optional host IPv4 CIDR address for bridge mode. Does not configure DHCP or routing."
                     },
                     "device": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Optional existing native bridge device to borrow. Applied device ownership remains server-managed."
                     },
                     "members": {
                         "items": {
                             "type": "string"
                         },
                         "type": "array",
-                        "uniqueItems": false
+                        "uniqueItems": false,
+                        "description": "Existing host interfaces to join a native bridge."
                     },
                     "mode": {
-                        "type": "string"
+                        "enum": [
+                            "bridge",
+                            "switch",
+                            "bridged",
+                            "vmnet-bridged",
+                            "user",
+                            "vlan"
+                        ],
+                        "type": "string",
+                        "description": "Network backend. Omission defaults to bridge."
                     },
                     "name": {
-                        "type": "string"
+                        "minLength": 1,
+                        "type": "string",
+                        "description": "Network name. Reserved names user and vmnet-* cannot be used."
                     },
                     "parent": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Host parent interface for vlan mode."
                     },
                     "tag": {
-                        "type": "integer"
+                        "maximum": 4094,
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "VLAN ID from 1 to 4094 when mode is vlan. Omit in other modes."
                     },
                     "uplink": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Host interface name from listInterfaces. Required for vmnet-bridged or bridged."
                     },
                     "vlans": {
                         "items": {
                             "$ref": "#/components/schemas/types.VLAN"
                         },
                         "type": "array",
-                        "uniqueItems": false
+                        "uniqueItems": false,
+                        "description": "VLANs to create and join to a bridge using parent interface and tag."
                     }
                 },
+                "required": [
+                    "name"
+                ],
                 "type": "object"
             },
             "engine.CreateVMParams": {
@@ -318,53 +425,100 @@
                             "type": "string"
                         },
                         "type": "array",
-                        "uniqueItems": false
+                        "uniqueItems": false,
+                        "description": "Static IPv4 or IPv6 CIDR addresses for the primary guest interface. Omission uses guest provisioning defaults."
                     },
                     "autostart": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "Whether host reconciliation should automatically start this VM. Default false."
                     },
                     "boot_order": {
                         "items": {
                             "type": "string"
                         },
                         "type": "array",
-                        "uniqueItems": false
+                        "uniqueItems": false,
+                        "description": "Ordered boot entries: disk or disk:<disk-id> or iso:<media-id>. Omission uses the server default order."
                     },
                     "cpus": {
-                        "type": "integer"
+                        "example": 2,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Virtual CPU count. At least 1."
                     },
                     "disk_size_gib": {
-                        "type": "integer"
+                        "example": 20,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Primary disk capacity in GiB. At least 1."
+                    },
+                    "disks": {
+                        "items": {
+                            "$ref": "#/components/schemas/engine.CreateDiskParams"
+                        },
+                        "type": "array",
+                        "uniqueItems": false,
+                        "description": "Additional named data disks with capacities in GiB."
+                    },
+                    "gateway": {
+                        "type": "string",
+                        "description": "Optional primary-interface gateway IP address."
+                    },
+                    "guest_setup": {
+                        "$ref": "#/components/schemas/types.GuestSetup",
+                        "description": "Guest provisioning configuration. Discover supported provisioners and modes from listCatalog."
                     },
                     "image": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Image key from listCatalog or disk image ID from listMedia. Supply this or exactly one installation ISO."
+                    },
+                    "interfaces": {
+                        "items": {
+                            "$ref": "#/components/schemas/engine.InterfaceParams"
+                        },
+                        "type": "array",
+                        "uniqueItems": false,
+                        "description": "Explicit interface list. Omit to use network; an empty list creates no interfaces. Maximum 32."
                     },
                     "isos": {
                         "items": {
                             "type": "string"
                         },
                         "type": "array",
-                        "uniqueItems": false
+                        "uniqueItems": false,
+                        "description": "Exactly one media ID from listMedia for an ISO installation. Cannot be combined with image."
                     },
                     "memory_mib": {
-                        "type": "integer"
+                        "example": 2048,
+                        "minimum": 64,
+                        "type": "integer",
+                        "description": "Guest memory in MiB. At least 64."
                     },
                     "name": {
-                        "type": "string"
+                        "maxLength": 63,
+                        "minLength": 1,
+                        "type": "string",
+                        "description": "Unique VM name. Use an RFC 1123 hostname such as agent-vm."
+                    },
+                    "nameservers": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false,
+                        "description": "DNS server IP addresses for guest provisioning."
                     },
                     "network": {
-                        "type": "string"
-                    },
-                    "password": {
-                        "type": "string"
-                    },
-                    "ssh_key": {
-                        "type": "string"
-                    },
-                    "username": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Default interface network ID from listNetworks or user for NAT. Omission uses user networking."
                     }
                 },
+                "required": [
+                    "cpus",
+                    "disk_size_gib",
+                    "memory_mib",
+                    "name"
+                ],
                 "type": "object"
             },
             "engine.DiskParams": {
@@ -431,6 +585,99 @@
                 ],
                 "type": "object"
             },
+            "engine.GuestSetupParams": {
+                "properties": {
+                    "addresses": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "files": {
+                        "items": {
+                            "$ref": "#/components/schemas/types.GuestFile"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "gateway": {
+                        "type": "string"
+                    },
+                    "hostname": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "nameservers": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "provisioner": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "engine.GuestSetupView": {
+                "properties": {
+                    "addresses": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "files": {
+                        "items": {
+                            "$ref": "#/components/schemas/types.GuestFile"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "gateway": {
+                        "type": "string"
+                    },
+                    "hostname": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "nameservers": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "provisioner": {
+                        "type": "string"
+                    },
+                    "provisioning": {
+                        "items": {
+                            "$ref": "#/components/schemas/types.GuestCapability"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "addresses",
+                    "files",
+                    "gateway",
+                    "hostname",
+                    "mode",
+                    "nameservers",
+                    "provisioner",
+                    "provisioning"
+                ],
+                "type": "object"
+            },
             "engine.HostInfo": {
                 "properties": {
                     "cpus": {
@@ -449,15 +696,33 @@
             "engine.InterfaceParams": {
                 "properties": {
                     "id": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "VM interface ID such as net0. Discover existing IDs with getVM."
                     },
+                    "mac": {
+                        "type": "string",
+                        "description": "Optional guest MAC address. Use suggestMAC for a generated suggestion or omit for a stable generated MAC."
+                    },
+                    "network": {
+                        "type": "string",
+                        "description": "Network ID from listNetworks or user for NAT."
+                    }
+                },
+                "type": "object"
+            },
+            "engine.MACSuggestion": {
+                "properties": {
                     "mac": {
                         "type": "string"
                     },
-                    "network": {
+                    "oui": {
                         "type": "string"
                     }
                 },
+                "required": [
+                    "mac",
+                    "oui"
+                ],
                 "type": "object"
             },
             "engine.Media": {
@@ -509,16 +774,23 @@
             "engine.ScheduleParams": {
                 "properties": {
                     "enabled": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "Enable automatic backups for this VM."
                     },
                     "interval_hours": {
-                        "type": "integer"
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "Hours between backups. Must be at least 1 when enabled."
                     },
                     "keep_last": {
-                        "type": "integer"
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "Number of newest backups retained. Zero disables this retention limit."
                     },
                     "max_age_days": {
-                        "type": "integer"
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "Maximum backup age in days. Zero disables this retention limit."
                     }
                 },
                 "type": "object"
@@ -562,6 +834,59 @@
                     "path",
                     "total_bytes",
                     "used_bytes"
+                ],
+                "type": "object"
+            },
+            "engine.Template": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "spec": {
+                        "$ref": "#/components/schemas/engine.CreateVMParams"
+                    }
+                },
+                "required": [
+                    "description",
+                    "id",
+                    "name",
+                    "spec"
+                ],
+                "type": "object"
+            },
+            "engine.TemplateInstanceParams": {
+                "properties": {
+                    "autostart": {
+                        "type": "boolean",
+                        "description": "Optional autostart override. Omit to use the template value."
+                    },
+                    "cpus": {
+                        "type": "integer",
+                        "description": "Optional vCPU override. Omit to use the template value."
+                    },
+                    "disk_size_gib": {
+                        "type": "integer",
+                        "description": "Optional boot disk override in GiB. Omit to use the template value."
+                    },
+                    "memory_mib": {
+                        "type": "integer",
+                        "description": "Optional memory override in MiB. Omit to use the template value."
+                    },
+                    "name": {
+                        "maxLength": 63,
+                        "minLength": 1,
+                        "type": "string",
+                        "description": "Unique VM name. Use an RFC 1123 hostname such as agent-vm."
+                    }
+                },
+                "required": [
+                    "name"
                 ],
                 "type": "object"
             },
@@ -644,16 +969,23 @@
             "engine.UpdateHardwareParams": {
                 "properties": {
                     "autostart": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "Whether host reconciliation starts this VM automatically. Omit to preserve."
                     },
                     "cpus": {
-                        "type": "integer"
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "New CPU count. VM must be stopped. Omit to preserve current setting."
                     },
                     "disk_size_gib": {
-                        "type": "integer"
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "New primary disk capacity in GiB. Shrinking is not supported."
                     },
                     "memory_mib": {
-                        "type": "integer"
+                        "minimum": 64,
+                        "type": "integer",
+                        "description": "New memory in MiB. VM must be stopped. Omit to preserve current setting."
                     }
                 },
                 "type": "object"
@@ -681,7 +1013,7 @@
                 ],
                 "type": "object"
             },
-            "hostnet.Port": {
+            "host.Port": {
                 "properties": {
                     "addresses": {
                         "items": {
@@ -871,6 +1203,60 @@
                 ],
                 "type": "object"
             },
+            "types.GuestCapability": {
+                "properties": {
+                    "provisioner": {
+                        "type": "string"
+                    },
+                    "raw": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "provisioner",
+                    "raw"
+                ],
+                "type": "object"
+            },
+            "types.GuestFile": {
+                "properties": {
+                    "content": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name"
+                ],
+                "type": "object"
+            },
+            "types.GuestSetup": {
+                "description": "Guest provisioning configuration. Discover supported provisioners and modes from listCatalog before creating a VM.",
+                "properties": {
+                    "files": {
+                        "items": {
+                            "$ref": "#/components/schemas/types.GuestFile"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "hostname": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "provisioner": {
+                        "type": "string"
+                    },
+                    "raw": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "types.NetworkManifest": {
                 "properties": {
                     "address": {
@@ -949,12 +1335,6 @@
                     "bridge",
                     "switch",
                     "bridged",
-                    "vlan",
-                    "bridge",
-                    "switch",
-                    "bridged",
-                    "vmnet-bridged",
-                    "user",
                     "vlan"
                 ],
                 "type": "string",
@@ -966,6 +1346,33 @@
                     "NetworkBridged",
                     "NetworkVLAN"
                 ]
+            },
+            "types.SSHKey": {
+                "properties": {
+                    "created_at": {
+                        "type": "integer"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "public_key": {
+                        "type": "string"
+                    },
+                    "user_id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "created_at",
+                    "id",
+                    "name",
+                    "public_key",
+                    "user_id"
+                ],
+                "type": "object"
             },
             "types.VLAN": {
                 "properties": {
@@ -1019,11 +1426,21 @@
                         "type": "array",
                         "uniqueItems": false
                     },
+                    "gateway": {
+                        "type": "string"
+                    },
                     "id": {
                         "type": "string"
                     },
                     "mac": {
                         "type": "string"
+                    },
+                    "nameservers": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     },
                     "network": {
                         "type": "string"
@@ -1069,6 +1486,12 @@
                         "type": "array",
                         "uniqueItems": false
                     },
+                    "gateway": {
+                        "type": "string"
+                    },
+                    "guest_setup": {
+                        "$ref": "#/components/schemas/types.GuestSetup"
+                    },
                     "id": {
                         "type": "string"
                     },
@@ -1096,11 +1519,22 @@
                     "name": {
                         "type": "string"
                     },
+                    "nameservers": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "network": {
                         "type": "string"
                     },
-                    "ssh_key": {
-                        "type": "string"
+                    "ssh_keys": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     },
                     "usb": {
                         "items": {
@@ -1108,9 +1542,6 @@
                         },
                         "type": "array",
                         "uniqueItems": false
-                    },
-                    "username": {
-                        "type": "string"
                     }
                 },
                 "required": [
@@ -1119,8 +1550,7 @@
                     "id",
                     "image",
                     "memory_mib",
-                    "name",
-                    "username"
+                    "name"
                 ],
                 "type": "object"
             },
@@ -1358,6 +1788,7 @@
     "paths": {
         "/api/catalog": {
             "get": {
+                "description": "List supported image catalog entries, download availability, and guest provisioning capabilities. Use returned catalog keys instead of guessing image names.",
                 "operationId": "listCatalog",
                 "responses": {
                     "200": {
@@ -1392,11 +1823,17 @@
                 "summary": "listCatalog",
                 "tags": [
                     "catalog"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             }
         },
         "/api/catalog/{id}": {
             "delete": {
+                "description": "Delete the downloaded copy of a catalog image from this host. Use the catalog ID from listCatalog. Existing VM dependencies may prevent removal. Requires an administrator account.",
                 "operationId": "deleteCatalogImage",
                 "parameters": [
                     {
@@ -1442,11 +1879,17 @@
                 "summary": "deleteCatalogImage",
                 "tags": [
                     "catalog"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
             }
         },
         "/api/catalog/{id}/download": {
             "post": {
+                "description": "Download the selected catalog image to this host. Use its ID from listCatalog; wait for the download job before relying on the image being available. Requires an administrator account.",
                 "operationId": "downloadCatalogImage",
                 "parameters": [
                     {
@@ -1499,11 +1942,22 @@
                 "summary": "downloadCatalogImage",
                 "tags": [
                     "catalog"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/disks": {
             "get": {
+                "description": "List known disk media and their ownership or attachment state. Supports pagination with page and page_size.",
                 "operationId": "listDisks",
                 "parameters": [
                     {
@@ -1573,11 +2027,17 @@
                 "summary": "listDisks",
                 "tags": [
                     "disks"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             }
         },
         "/api/disks/stats": {
             "get": {
+                "description": "Read storage usage and available capacity for VM disks and media. Use before requesting large disk or media allocations.",
                 "operationId": "diskStorage",
                 "responses": {
                     "200": {
@@ -1619,12 +2079,17 @@
                 "summary": "diskStorage",
                 "tags": [
                     "disks"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             }
         },
         "/api/events": {
             "get": {
-                "description": "WebSocket upgrade. Send {\"token\":\"<JWT>\"} as the first message within five seconds. Console and display carry binary frames; notification streams carry JobsEvent JSON.",
+                "description": "Continuous resource notifications over WebSocket. Use read-only list and inspect operations from MCP.",
                 "operationId": "streamEvents",
                 "responses": {
                     "101": {
@@ -1634,11 +2099,17 @@
                 "summary": "streamEvents",
                 "tags": [
                     "events"
-                ]
+                ],
+                "x-maco": {
+                    "expose": false,
+                    "readOnly": true,
+                    "transport": "unsupported"
+                }
             }
         },
         "/api/host": {
             "get": {
+                "description": "Read host hardware, capacity, and runtime information. Use alongside diskStorage and listVMs before planning additional VMs.",
                 "operationId": "hostInfo",
                 "responses": {
                     "200": {
@@ -1670,12 +2141,17 @@
                 "summary": "hostInfo",
                 "tags": [
                     "host"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             }
         },
         "/api/host/console": {
             "get": {
-                "description": "WebSocket upgrade. Send {\"token\":\"<JWT>\"} as the first message within five seconds, then binary stdin frames and {\"cols\",\"rows\"} JSON resize frames. Streams a login shell on the maco host and requires the administrator role.",
+                "description": "Interactive host shell over WebSocket. Not exposed as a request/response MCP tool.",
                 "operationId": "hostConsole",
                 "responses": {
                     "101": {
@@ -1685,11 +2161,177 @@
                 "summary": "hostConsole",
                 "tags": [
                     "host"
-                ]
+                ],
+                "x-maco": {
+                    "expose": false,
+                    "readOnly": true,
+                    "transport": "unsupported"
+                }
+            }
+        },
+        "/api/host/poweroff": {
+            "post": {
+                "description": "Power off the entire Maco host, interrupting API connectivity and running workloads. body.force requests forced handling of running VMs. Job completion may be unobservable once the host shuts down. Requires an administrator account.",
+                "operationId": "powerOffHost",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/api.HostPowerRequest",
+                                "summary": "body",
+                                "description": "Request"
+                            }
+                        }
+                    },
+                    "description": "Request",
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/jobs.Job"
+                                }
+                            }
+                        },
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Service Unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "powerOffHost",
+                "tags": [
+                    "host"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
+            }
+        },
+        "/api/host/reboot": {
+            "post": {
+                "description": "Reboot the entire Maco host, interrupting API connectivity and running workloads. body.force requests forced handling of running VMs. A lost connection during reboot is not proof the reboot failed. Requires an administrator account.",
+                "operationId": "rebootHost",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/api.HostPowerRequest",
+                                "summary": "body",
+                                "description": "Request"
+                            }
+                        }
+                    },
+                    "description": "Request",
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/jobs.Job"
+                                }
+                            }
+                        },
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Service Unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "rebootHost",
+                "tags": [
+                    "host"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/images": {
             "get": {
+                "description": "List images currently available on this Maco host. Compare with listCatalog to discover downloadable images.",
                 "operationId": "listImages",
                 "responses": {
                     "200": {
@@ -1734,11 +2376,17 @@
                 "summary": "listImages",
                 "tags": [
                     "images"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             }
         },
         "/api/interfaces": {
             "get": {
+                "description": "List host network interfaces and addresses. Use their actual names for bridge members, VLAN parents, or vmnet uplinks.",
                 "operationId": "listInterfaces",
                 "responses": {
                     "200": {
@@ -1746,7 +2394,7 @@
                             "application/json": {
                                 "schema": {
                                     "items": {
-                                        "$ref": "#/components/schemas/hostnet.Port"
+                                        "$ref": "#/components/schemas/host.Port"
                                     },
                                     "type": "array"
                                 }
@@ -1783,11 +2431,59 @@
                 "summary": "listInterfaces",
                 "tags": [
                     "interfaces"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
+            }
+        },
+        "/api/interfaces/mac": {
+            "get": {
+                "description": "Generate a suggested guest MAC address. Use the returned address in a VM interface request when a specific MAC is desired.",
+                "operationId": "suggestMAC",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/engine.MACSuggestion"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "suggestMAC",
+                "tags": [
+                    "vms"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             }
         },
         "/api/jobs": {
             "get": {
+                "description": "List asynchronous jobs with state, IDs, and logs. Filter by state or search and use page/page_size for pagination. States are pending, running, succeeded, or failed.",
                 "operationId": "listJobs",
                 "parameters": [
                     {
@@ -1881,12 +2577,17 @@
                 "summary": "listJobs",
                 "tags": [
                     "jobs"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             }
         },
         "/api/jobs/stream": {
             "get": {
-                "description": "WebSocket upgrade. Send {\"token\":\"<JWT>\"} as the first message within five seconds. Console and display carry binary frames; notification streams carry JobsEvent JSON.",
+                "description": "Continuous job notifications over WebSocket. Use listJobs, getJob, or the finite waitJob operation from MCP.",
                 "operationId": "streamJobs",
                 "responses": {
                     "101": {
@@ -1896,11 +2597,17 @@
                 "summary": "streamJobs",
                 "tags": [
                     "jobs"
-                ]
+                ],
+                "x-maco": {
+                    "expose": false,
+                    "readOnly": true,
+                    "transport": "unsupported"
+                }
             }
         },
         "/api/jobs/{id}": {
             "get": {
+                "description": "Read a job by its returned job ID, including state, logs, result, and error. succeeded confirms completion; pending or running does not. A failed job may already have produced partial effects; inspect it before repeating the action.",
                 "operationId": "getJob",
                 "parameters": [
                     {
@@ -1953,26 +2660,103 @@
                 "summary": "getJob",
                 "tags": [
                     "jobs"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
+            }
+        },
+        "/api/jobs/{id}/wait": {
+            "get": {
+                "description": "Wait for one job ID until completion through a finite server-sent event stream. The done event returns the final job. Failed jobs are errors; connection loss does not cancel or prove failure of the underlying job. Inspect getJob or wait again with the same ID.",
+                "operationId": "waitJob",
+                "parameters": [
+                    {
+                        "description": "id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/jobs.Job"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "503": {
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Service Unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "waitJob",
+                "tags": [
+                    "jobs"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "stream": {
+                        "event": "done",
+                        "failureValue": "failed",
+                        "stateField": "state"
+                    },
+                    "transport": "sse"
+                }
             }
         },
         "/api/login": {
             "post": {
+                "description": "Exchange an account username and password for a login token. MCP uses registry credentials and does not expose login as a tool.",
                 "operationId": "handleLogin",
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/api.LoginRequest",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/api.LoginRequest",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -2024,11 +2808,17 @@
                 "summary": "handleLogin",
                 "tags": [
                     "login"
-                ]
+                ],
+                "x-maco": {
+                    "expose": false,
+                    "readOnly": false,
+                    "transport": "unsupported"
+                }
             }
         },
         "/api/me": {
             "get": {
+                "description": "Read the authenticated account name and role. Viewer accounts can inspect resources; administrator access is required for VM and host mutations.",
                 "operationId": "currentUser",
                 "responses": {
                     "200": {
@@ -2060,11 +2850,17 @@
                 "summary": "currentUser",
                 "tags": [
                     "login"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             }
         },
         "/api/me/api-keys": {
             "get": {
+                "description": "List the current account API keys and their metadata. Existing secret token values are not returned.",
                 "operationId": "listAPIKeys",
                 "responses": {
                     "200": {
@@ -2109,24 +2905,23 @@
                 "summary": "listAPIKeys",
                 "tags": [
                     "api-keys"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             },
             "post": {
+                "description": "Create an API key for the current account. The returned token is shown once and is a secret. Store it securely; the key inherits current account permissions.",
                 "operationId": "createAPIKey",
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/api.CreateAPIKeyRequest",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/api.CreateAPIKeyRequest",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -2183,11 +2978,17 @@
                 "summary": "createAPIKey",
                 "tags": [
                     "api-keys"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
             }
         },
         "/api/me/api-keys/{id}": {
             "delete": {
+                "description": "Revoke a current-account API key by ID from listAPIKeys. Revoking the key used by this MCP connection will prevent further authenticated requests.",
                 "operationId": "revokeAPIKey",
                 "parameters": [
                     {
@@ -2250,26 +3051,25 @@
                 "summary": "revokeAPIKey",
                 "tags": [
                     "api-keys"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
             }
         },
         "/api/me/password": {
             "patch": {
+                "description": "Change the current account password by supplying current_password and new_password. Existing login sessions may become invalid. The response contains a new login token; treat it as a secret.",
                 "operationId": "changePassword",
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/api.ChangePasswordRequest",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/api.ChangePasswordRequest",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -2326,11 +3126,218 @@
                 "summary": "changePassword",
                 "tags": [
                     "login"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
+            }
+        },
+        "/api/me/ssh-keys": {
+            "get": {
+                "description": "List the SSH public keys stored on the current account. These keys populate [[ .SSHKeys ]] in guest configurations when a VM is created.",
+                "operationId": "listSSHKeys",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/types.SSHKey"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "listSSHKeys",
+                "tags": [
+                    "ssh-keys"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
+            },
+            "post": {
+                "description": "Add an SSH public key to the current account. Supply a name and a complete public key such as ssh-ed25519 AAAA\u2026. Never submit a private key.",
+                "operationId": "addSSHKey",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/api.CreateSSHKeyRequest",
+                                "summary": "body",
+                                "description": "Request"
+                            }
+                        }
+                    },
+                    "description": "Request",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/types.SSHKey"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "addSSHKey",
+                "tags": [
+                    "ssh-keys"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
+            }
+        },
+        "/api/me/ssh-keys/{id}": {
+            "delete": {
+                "description": "Delete an SSH public key from the current account by ID from listSSHKeys.",
+                "operationId": "deleteSSHKey",
+                "parameters": [
+                    {
+                        "description": "SSH key id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.StatusResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "deleteSSHKey",
+                "tags": [
+                    "ssh-keys"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
             }
         },
         "/api/media": {
             "get": {
+                "description": "List uploaded ISO files and disk images with their IDs and usage. Use returned media IDs in VM creation and updateMedia requests.",
                 "operationId": "listMedia",
                 "responses": {
                     "200": {
@@ -2375,24 +3382,23 @@
                 "summary": "listMedia",
                 "tags": [
                     "media"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             },
             "post": {
+                "description": "Create a blank named disk image in the media library. size_gib is the requested capacity in GiB; consult diskStorage first. Requires an administrator account.",
                 "operationId": "createMedia",
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/api.CreateMediaRequest",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/api.CreateMediaRequest",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -2439,26 +3445,33 @@
                 "summary": "createMedia",
                 "tags": [
                     "media"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
             }
         },
         "/api/media/image": {
             "post": {
+                "description": "Upload a .qcow2 or .img disk image from the MCP host, up to 64 GiB including multipart framing. Use an absolute local file_path. Inspect the returned media record before attaching or using it. Requires an administrator account.",
                 "operationId": "uploadImage",
                 "requestBody": {
                     "content": {
                         "multipart/form-data": {
                             "schema": {
-                                "type": "object",
+                                "properties": {
+                                    "file": {
+                                        "description": "Disk image (.qcow2 or .img), maximum 64 GiB",
+                                        "format": "binary",
+                                        "type": "string"
+                                    }
+                                },
                                 "required": [
                                     "file"
                                 ],
-                                "properties": {
-                                    "file": {
-                                        "type": "string",
-                                        "format": "binary"
-                                    }
-                                }
+                                "type": "object"
                             }
                         }
                     },
@@ -2535,26 +3548,41 @@
                 "summary": "uploadImage",
                 "tags": [
                     "media"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "multipart",
+                    "upload": {
+                        "extensions": [
+                            ".qcow2",
+                            ".img"
+                        ],
+                        "field": "file",
+                        "maxBytes": 68719476736
+                    }
+                }
             }
         },
         "/api/media/iso": {
             "post": {
+                "description": "Upload an ISO file from the MCP host into Maco media storage, up to 10 GiB including multipart framing. Use an absolute local file_path. Returns the new media record; it does not attach the ISO to a VM. Requires an administrator account.",
                 "operationId": "uploadISO",
                 "requestBody": {
                     "content": {
                         "multipart/form-data": {
                             "schema": {
-                                "type": "object",
+                                "properties": {
+                                    "file": {
+                                        "description": "ISO file, maximum 10 GiB",
+                                        "format": "binary",
+                                        "type": "string"
+                                    }
+                                },
                                 "required": [
                                     "file"
                                 ],
-                                "properties": {
-                                    "file": {
-                                        "type": "string",
-                                        "format": "binary"
-                                    }
-                                }
+                                "type": "object"
                             }
                         }
                     },
@@ -2631,11 +3659,24 @@
                 "summary": "uploadISO",
                 "tags": [
                     "media"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "multipart",
+                    "upload": {
+                        "extensions": [
+                            ".iso"
+                        ],
+                        "field": "file",
+                        "maxBytes": 10737418240
+                    }
+                }
             }
         },
         "/api/media/{id}": {
             "delete": {
+                "description": "Delete the selected media library entry by ID from listMedia. This is destructive and can be rejected if media is still in use. Requires an administrator account.",
                 "operationId": "deleteMedia",
                 "parameters": [
                     {
@@ -2681,11 +3722,17 @@
                 "summary": "deleteMedia",
                 "tags": [
                     "media"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
             }
         },
         "/api/networks": {
             "get": {
+                "description": "List configured networks and their IDs, modes, and applied topology. Use IDs from this response in VM interface requests. Applied fields describe engine-owned state, not authoring inputs.",
                 "operationId": "listNetworks",
                 "responses": {
                     "200": {
@@ -2730,24 +3777,23 @@
                 "summary": "listNetworks",
                 "tags": [
                     "networks"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             },
             "post": {
+                "description": "Create a named network. Discover host interface names with listInterfaces. Mode bridge supports members, address (IPv4 CIDR), and vlans; vmnet-bridged requires uplink; vlan requires parent and tag (1 to 4094). Host address does not create DHCP or routing. Use the request schema rather than copying a stored network manifest. Requires an administrator account.",
                 "operationId": "createNetwork",
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.CreateNetworkParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.CreateNetworkParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -2804,11 +3850,22 @@
                 "summary": "createNetwork",
                 "tags": [
                     "networks"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/networks/{id}": {
             "delete": {
+                "description": "Delete a configured network and clean up host resources owned by Maco. May disrupt attached VMs. Borrowed host interfaces are retained. Requires an administrator account.",
                 "operationId": "destroyNetwork",
                 "parameters": [
                     {
@@ -2861,9 +3918,20 @@
                 "summary": "destroyNetwork",
                 "tags": [
                     "networks"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             },
             "put": {
+                "description": "Replace the desired settings of an existing network using its ID from listNetworks. Read existing configuration first and supply the desired complete settings. This is not an arbitrary manifest replacement; applied bookkeeping is managed by Maco. Requires an administrator account.",
                 "operationId": "updateNetwork",
                 "parameters": [
                     {
@@ -2880,16 +3948,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.CreateNetworkParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.CreateNetworkParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -2946,11 +4007,22 @@
                 "summary": "updateNetwork",
                 "tags": [
                     "networks"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/networks/{id}/apply": {
             "post": {
+                "description": "Reconcile the selected network configuration onto the host. Can affect host connectivity; inspect listNetworks and listInterfaces before applying. Requires an administrator account.",
                 "operationId": "applyNetwork",
                 "parameters": [
                     {
@@ -3003,11 +4075,442 @@
                 "summary": "applyNetwork",
                 "tags": [
                     "networks"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
+            }
+        },
+        "/api/templates": {
+            "get": {
+                "description": "List saved machine-profile templates and their IDs. Each template carries guest provisioning (cloud-init or Ignition) and hardware defaults, used to pre-fill VM creation.",
+                "operationId": "listTemplates",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/engine.Template"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "listTemplates",
+                "tags": [
+                    "templates"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
+            },
+            "post": {
+                "description": "Save a reusable machine-profile template. The spec mirrors the createVM request (guest provisioning plus hardware) minus the VM name. Requires an administrator account.",
+                "operationId": "createTemplate",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/api.TemplateRequest",
+                                "summary": "body",
+                                "description": "Request"
+                            }
+                        }
+                    },
+                    "description": "Request",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/engine.Template"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "createTemplate",
+                "tags": [
+                    "templates"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
+            }
+        },
+        "/api/templates/{id}": {
+            "delete": {
+                "description": "Delete a saved machine-profile template by ID from listTemplates. Requires an administrator account.",
+                "operationId": "deleteTemplate",
+                "parameters": [
+                    {
+                        "description": "id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "deleteTemplate",
+                "tags": [
+                    "templates"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
+            },
+            "get": {
+                "description": "Read a single machine-profile template by ID from listTemplates. The returned spec is a full createVM request without a name, so it can be edited and passed to createVM to customize fields that instantiateTemplate does not override, such as network, addresses, interfaces, disks, or guest_setup.",
+                "operationId": "getTemplate",
+                "parameters": [
+                    {
+                        "description": "id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/engine.Template"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "getTemplate",
+                "tags": [
+                    "templates"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
+            },
+            "put": {
+                "description": "Replace a saved template by ID from listTemplates with the supplied name, description, and spec. Requires an administrator account.",
+                "operationId": "updateTemplate",
+                "parameters": [
+                    {
+                        "description": "id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/api.TemplateRequest",
+                                "summary": "body",
+                                "description": "Request"
+                            }
+                        }
+                    },
+                    "description": "Request",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/engine.Template"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "updateTemplate",
+                "tags": [
+                    "templates"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
+            }
+        },
+        "/api/templates/{id}/instantiate": {
+            "post": {
+                "description": "Create a VM from a saved template by ID from listTemplates. This is a convenience path that keeps the template spec as-is and only lets you set a unique VM name and optional cpus, memory_mib, disk_size_gib, or autostart overrides. To change anything else, including networking, addresses, interfaces, disks, or guest provisioning, do not use this endpoint: read the template with getTemplate, edit its spec (a full createVM body without name), and pass it to createVM. Returns a queued job like createVM; the job result contains the new VM ID. Requires an administrator account.",
+                "operationId": "instantiateTemplate",
+                "parameters": [
+                    {
+                        "description": "id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/engine.TemplateInstanceParams",
+                                "summary": "body",
+                                "description": "Request"
+                            }
+                        }
+                    },
+                    "description": "Request",
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/jobs.Job"
+                                }
+                            }
+                        },
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Service Unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "instantiateTemplate",
+                "tags": [
+                    "templates"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/usb/devices": {
             "get": {
+                "description": "List USB devices detected on the Maco host. Use the reported identifiers to prepare an assignment or attachment request.",
                 "operationId": "listUSBDevices",
                 "responses": {
                     "200": {
@@ -3049,11 +4552,17 @@
                 "summary": "listUSBDevices",
                 "tags": [
                     "usb"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             }
         },
         "/api/vms": {
             "get": {
+                "description": "List all VMs with their manifest, current phase, process ID, and boot time. Use manifest.id as the id argument for VM operations. Read-only; does not start VMs.",
                 "operationId": "listVMs",
                 "responses": {
                     "200": {
@@ -3098,24 +4607,23 @@
                 "summary": "listVMs",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             },
             "post": {
+                "description": "Create a VM and its disks. Discover image keys and provisioning capabilities with listCatalog, existing media with listMedia, and network IDs with listNetworks first. Body is an API creation request, not a persisted manifest. Provide name, cpus, memory_mib (MiB), disk_size_gib (GiB), and an image key or installation ISO. Example body: {\"name\":\"agent-vm\",\"cpus\":2,\"memory_mib\":2048,\"disk_size_gib\":20,\"username\":\"maco\",\"image\":\"<key from listCatalog>\"}. The job result contains the new VM ID; creation does not imply the VM is running. Use startVM afterward when needed. Requires an administrator account.",
                 "operationId": "createVM",
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.CreateVMParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.CreateVMParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -3172,11 +4680,22 @@
                 "summary": "createVM",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}": {
             "delete": {
+                "description": "Delete a VM and its managed storage. This is destructive. Select the exact VM ID from listVMs and create and verify a backup first if its data must be retained. Requires an administrator account.",
                 "operationId": "deleteVM",
                 "parameters": [
                     {
@@ -3229,9 +4748,20 @@
                 "summary": "deleteVM",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             },
             "get": {
+                "description": "Inspect one VM by its ID from listVMs, including configuration and current power state. Use this after a completed lifecycle job to verify the result.",
                 "operationId": "getVM",
                 "parameters": [
                     {
@@ -3294,11 +4824,17 @@
                 "summary": "getVM",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             }
         },
         "/api/vms/{id}/backups": {
             "get": {
+                "description": "List backups for a VM ID from listVMs. Use a returned timestamp unchanged with restoreBackup or deleteBackup.",
                 "operationId": "listBackups",
                 "parameters": [
                     {
@@ -3354,9 +4890,15 @@
                 "summary": "listBackups",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             },
             "post": {
+                "description": "Create a backup of the selected VM. This queues a backup job; wait for success before treating the backup as usable, then inspect listBackups. Requires an administrator account.",
                 "operationId": "createBackup",
                 "parameters": [
                     {
@@ -3409,11 +4951,22 @@
                 "summary": "createBackup",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/backups/schedule": {
             "get": {
+                "description": "Read the backup schedule and retention settings for a VM. Use the returned values to prepare a schedule update.",
                 "operationId": "getBackupSchedule",
                 "parameters": [
                     {
@@ -3466,9 +5019,15 @@
                 "summary": "getBackupSchedule",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             },
             "put": {
+                "description": "Set backup scheduling and retention for a VM. interval_hours is in hours, keep_last counts retained backups, and max_age_days is in days. Retention can delete old backups; review existing settings first. Requires an administrator account.",
                 "operationId": "setBackupSchedule",
                 "parameters": [
                     {
@@ -3485,16 +5044,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.ScheduleParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.ScheduleParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -3551,11 +5103,17 @@
                 "summary": "setBackupSchedule",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
             }
         },
         "/api/vms/{id}/backups/{timestamp}": {
             "delete": {
+                "description": "Permanently delete the backup selected by VM id and timestamp from listBackups. This does not delete the VM itself. Requires an administrator account.",
                 "operationId": "deleteBackup",
                 "parameters": [
                     {
@@ -3617,11 +5175,22 @@
                 "summary": "deleteBackup",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/backups/{timestamp}/restore": {
             "post": {
+                "description": "Restore the backup identified by VM id and timestamp from listBackups. Set body.as_new=true to restore as a new VM. False restores in place and can replace current VM data. Example body: {\"as_new\":true}. Wait for the restore job before using the VM. Requires an administrator account.",
                 "operationId": "restoreBackup",
                 "parameters": [
                     {
@@ -3647,16 +5216,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/api.restoreRequest",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/api.restoreRequest",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -3713,12 +5275,22 @@
                 "summary": "restoreBackup",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/console": {
             "get": {
-                "description": "WebSocket upgrade. Send {\"token\":\"<JWT>\"} as the first message within five seconds. Console and display carry binary frames; notification streams carry JobsEvent JSON.",
+                "description": "Interactive VM serial console over WebSocket. Not exposed as a request/response MCP tool.",
                 "operationId": "consoleVM",
                 "parameters": [
                     {
@@ -3739,11 +5311,17 @@
                 "summary": "consoleVM",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": false,
+                    "readOnly": true,
+                    "transport": "unsupported"
+                }
             }
         },
         "/api/vms/{id}/disks": {
             "post": {
+                "description": "Add an additional disk to a VM. Size is in GiB. Use the VM ID from listVMs, and inspect the completed job and getVM for the attached disk ID. Requires an administrator account.",
                 "operationId": "addDisk",
                 "parameters": [
                     {
@@ -3760,16 +5338,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.DiskParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.DiskParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -3826,11 +5397,22 @@
                 "summary": "addDisk",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/disks/{disk}": {
             "delete": {
+                "description": "Remove an additional disk from a VM by disk ID. This can destroy disk data; inspect the disk and preserve needed data before removing it. Requires an administrator account.",
                 "operationId": "removeDisk",
                 "parameters": [
                     {
@@ -3892,9 +5474,20 @@
                 "summary": "removeDisk",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             },
             "patch": {
+                "description": "Increase the size of an additional VM disk using its disk ID from getVM. Size is in GiB; shrinking is unsupported and the guest may still need filesystem expansion. Requires an administrator account.",
                 "operationId": "growDisk",
                 "parameters": [
                     {
@@ -3920,16 +5513,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.DiskParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.DiskParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -3986,12 +5572,22 @@
                 "summary": "growDisk",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/display": {
             "get": {
-                "description": "WebSocket upgrade. Send {\"token\":\"<JWT>\"} as the first message within five seconds. Console and display carry binary frames; notification streams carry JobsEvent JSON.",
+                "description": "Interactive VM graphical display over WebSocket. Not exposed as a request/response MCP tool.",
                 "operationId": "displayVM",
                 "parameters": [
                     {
@@ -4012,11 +5608,17 @@
                 "summary": "displayVM",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": false,
+                    "readOnly": true,
+                    "transport": "unsupported"
+                }
             }
         },
         "/api/vms/{id}/guest-agent": {
             "get": {
+                "description": "Inspect QEMU guest-agent availability and guest-reported information for a VM ID from listVMs. When available is false the guest agent has not answered yet; this does not mean it is absent or that the VM is stopped. On a freshly started VM the agent commonly takes a while to come up on first boot (Flatcar and similar images ship qemu-ga and start it automatically once the guest finishes booting), so retry a few times over the first minute or two before concluding the agent is unavailable.",
                 "operationId": "vmGuestAgent",
                 "parameters": [
                     {
@@ -4079,11 +5681,169 @@
                 "summary": "vmGuestAgent",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
+            }
+        },
+        "/api/vms/{id}/guest-setup": {
+            "get": {
+                "description": "Read guest provisioning settings and image-supported provisioning capabilities for a VM. Consult this before modifying guest setup; secret values may be omitted.",
+                "operationId": "getGuestSetup",
+                "parameters": [
+                    {
+                        "description": "id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/engine.GuestSetupView"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "getGuestSetup",
+                "tags": [
+                    "vms"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
+            },
+            "patch": {
+                "description": "Update guest provisioning settings for a stopped VM. Read getGuestSetup first for supported provisioner and mode values. This request is a guest-setup update, not a complete manifest. Requires an administrator account.",
+                "operationId": "updateGuestSetup",
+                "parameters": [
+                    {
+                        "description": "id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/engine.GuestSetupParams",
+                                "summary": "body",
+                                "description": "Request"
+                            }
+                        }
+                    },
+                    "description": "Request",
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/jobs.Job"
+                                }
+                            }
+                        },
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Service Unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "updateGuestSetup",
+                "tags": [
+                    "vms"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/hardware": {
             "patch": {
+                "description": "Update VM hardware settings by ID. Body fields are optional patches: omitted settings remain unchanged. CPU and memory changes require the VM to be stopped; memory_mib uses MiB and disk_size_gib uses GiB. Disk shrinking is unsupported. Requires an administrator account.",
                 "operationId": "updateHardware",
                 "parameters": [
                     {
@@ -4100,16 +5860,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.UpdateHardwareParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.UpdateHardwareParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -4166,11 +5919,22 @@
                 "summary": "updateHardware",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/interfaces": {
             "post": {
+                "description": "Add a network interface to a VM. Select the VM ID from listVMs and network ID from listNetworks. Guest addresses use CIDR notation; gateway and nameservers are IP addresses. Requires an administrator account.",
                 "operationId": "addVMInterface",
                 "parameters": [
                     {
@@ -4187,16 +5951,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.InterfaceParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.InterfaceParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -4253,11 +6010,22 @@
                 "summary": "addVMInterface",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/interfaces/{interface}": {
             "delete": {
+                "description": "Remove a VM network interface by its interface ID from getVM. This can disconnect the guest from its network. Requires an administrator account.",
                 "operationId": "removeVMInterface",
                 "parameters": [
                     {
@@ -4319,9 +6087,20 @@
                 "summary": "removeVMInterface",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             },
             "patch": {
+                "description": "Update an existing VM interface identified by its interface ID from getVM. Inspect its current settings and the request schema before submitting changes. Requires an administrator account.",
                 "operationId": "updateVMInterface",
                 "parameters": [
                     {
@@ -4347,16 +6126,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.InterfaceParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.InterfaceParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -4413,11 +6185,22 @@
                 "summary": "updateVMInterface",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/media": {
             "patch": {
+                "description": "Update a VM ISO attachment and boot-order settings. Discover media IDs with listMedia and current settings with getVM. Boot entries use disk, disk:<disk-id>, and iso:<media-id>. Requires an administrator account.",
                 "operationId": "updateMedia",
                 "parameters": [
                     {
@@ -4434,16 +6217,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.MediaSettings",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.MediaSettings",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -4490,11 +6266,17 @@
                 "summary": "updateMedia",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json"
+                }
             }
         },
         "/api/vms/{id}/preview": {
             "get": {
+                "description": "Read the latest PNG screenshot of a VM display. Returns image content, not JSON; does not send keyboard or pointer input.",
                 "operationId": "previewVM",
                 "parameters": [
                     {
@@ -4557,11 +6339,85 @@
                 "summary": "previewVM",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "image"
+                }
+            }
+        },
+        "/api/vms/{id}/reboot": {
+            "post": {
+                "description": "Request a reboot of the selected VM. Use its ID from listVMs and inspect getVM and the completed job for the result. Requires an administrator account.",
+                "operationId": "rebootVM",
+                "parameters": [
+                    {
+                        "description": "id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/jobs.Job"
+                                }
+                            }
+                        },
+                        "description": "Accepted"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Service Unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "rebootVM",
+                "tags": [
+                    "vms"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/shutdown": {
             "post": {
+                "description": "Request graceful guest shutdown through ACPI. The guest must support shutdown; inspect getVM after job completion to confirm it stopped. Requires an administrator account.",
                 "operationId": "shutdownVM",
                 "parameters": [
                     {
@@ -4614,11 +6470,22 @@
                 "summary": "shutdownVM",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/snapshots": {
             "get": {
+                "description": "List internal snapshots for a VM. Use a returned tag unchanged for restoreSnapshot and deleteSnapshot. Snapshots are not independent backup copies.",
                 "operationId": "listSnapshots",
                 "parameters": [
                     {
@@ -4674,9 +6541,15 @@
                 "summary": "listSnapshots",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             },
             "post": {
+                "description": "Create an internal snapshot of a VM. Supply a tag in the request body and wait for the job to complete before using it. Requires an administrator account.",
                 "operationId": "createSnapshot",
                 "parameters": [
                     {
@@ -4693,16 +6566,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.SnapshotParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.SnapshotParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -4759,11 +6625,22 @@
                 "summary": "createSnapshot",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/snapshots/{tag}": {
             "delete": {
+                "description": "Delete an internal VM snapshot identified by a tag from listSnapshots. This removes that restore point. Requires an administrator account.",
                 "operationId": "deleteSnapshot",
                 "parameters": [
                     {
@@ -4825,11 +6702,22 @@
                 "summary": "deleteSnapshot",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/snapshots/{tag}/restore": {
             "post": {
+                "description": "Restore a VM to a snapshot tag returned by listSnapshots. This replaces its current state; wait for the restore job before further actions. Requires an administrator account.",
                 "operationId": "restoreSnapshot",
                 "parameters": [
                     {
@@ -4891,11 +6779,22 @@
                 "summary": "restoreSnapshot",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/start": {
             "post": {
+                "description": "Start an existing VM using its ID from listVMs. Check getVM first and inspect the completed job before assuming the guest is running. Requires an administrator account.",
                 "operationId": "startVM",
                 "parameters": [
                     {
@@ -4948,11 +6847,22 @@
                 "summary": "startVM",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/stop": {
             "post": {
+                "description": "Force-stop a VM using its ID from listVMs. This can interrupt guest writes; prefer shutdownVM for a graceful guest shutdown. Requires an administrator account.",
                 "operationId": "stopVM",
                 "parameters": [
                     {
@@ -5005,11 +6915,22 @@
                 "summary": "stopVM",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/usb": {
             "get": {
+                "description": "Inspect USB devices attached or assigned to a VM, including attachment identifiers needed for detachUSB.",
                 "operationId": "listVMUSB",
                 "parameters": [
                     {
@@ -5065,9 +6986,15 @@
                 "summary": "listVMUSB",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": true,
+                    "transport": "json"
+                }
             },
             "post": {
+                "description": "Attach a detected host USB device to the selected VM. Discover devices with listUSBDevices and use the exact identifiers from that response. Requires an administrator account.",
                 "operationId": "attachUSB",
                 "parameters": [
                     {
@@ -5084,16 +7011,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.USBParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.USBParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -5170,11 +7090,22 @@
                 "summary": "attachUSB",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/usb/assignments": {
             "post": {
+                "description": "Persist a USB assignment for a VM using vendor/product identifiers and optional serial matching. Discover supported values with listUSBDevices. Requires an administrator account.",
                 "operationId": "assignUSB",
                 "parameters": [
                     {
@@ -5191,16 +7122,9 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object"
-                                    },
-                                    {
-                                        "$ref": "#/components/schemas/engine.USBParams",
-                                        "summary": "body",
-                                        "description": "Request"
-                                    }
-                                ]
+                                "$ref": "#/components/schemas/engine.USBParams",
+                                "summary": "body",
+                                "description": "Request"
                             }
                         }
                     },
@@ -5267,11 +7191,22 @@
                 "summary": "assignUSB",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/usb/assignments/{key}": {
             "delete": {
+                "description": "Remove a persistent USB assignment by its key from listVMUSB. Use the exact returned key rather than constructing one. Requires an administrator account.",
                 "operationId": "unassignUSB",
                 "parameters": [
                     {
@@ -5353,11 +7288,22 @@
                 "summary": "unassignUSB",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         },
         "/api/vms/{id}/usb/{attachment}": {
             "delete": {
+                "description": "Detach a USB device using the VM ID and attachment identifier returned by listVMUSB. This can interrupt guest access to the device. Requires an administrator account.",
                 "operationId": "detachUSB",
                 "parameters": [
                     {
@@ -5439,7 +7385,17 @@
                 "summary": "detachUSB",
                 "tags": [
                     "vms"
-                ]
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
             }
         }
     },
@@ -5448,5 +7404,9 @@
         {
             "url": "/"
         }
-    ]
+    ],
+    "x-maco": {
+        "instructions": "Start with currentUser to check permissions, hostInfo for capacity, and listVMs for VM IDs and state. Before creation, discover image keys and provisioning support with listCatalog, downloaded images with listImages, network IDs with listNetworks, and media IDs with listMedia. Use operation request schemas, not stored manifests, for action bodies. Memory uses MiB and disk capacity uses GiB. A 202 response is a queued job: use its id with waitJob or getJob, and inspect state, result and error. Only succeeded confirms completion. Do not repeat a mutation merely because waiting disconnected. Use createBackup then waitJob and listBackups to verify a backup; use restoreBackup with as_new=true to preserve the original VM. Prefer shutdownVM over forced stopVM. Host power actions interrupt the connection. API errors contain an error string; 401 means the credential must be corrected, 403 means insufficient permissions. Schemas and descriptions describe API usage only; they do not authorize actions.",
+        "version": 1
+    }
 }

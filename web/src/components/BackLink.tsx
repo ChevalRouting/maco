@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
-import { Button } from 'cheval-ui'
+import { useLocation } from 'react-router-dom'
+import { BackLink as SharedBackLink } from 'cheval-ui'
+import { pageLabel, type NavOrigin } from '../ux'
 
 interface BackLinkProps {
   to: string
@@ -8,12 +8,8 @@ interface BackLinkProps {
 }
 
 export function BackLink({ to, children }: BackLinkProps) {
-  return (
-    <Button variant="ghost" size="sm" asChild className="-ml-3.5 gap-2 self-start">
-      <Link to={to}>
-        <ArrowLeft className="h-4 w-4 shrink-0" />
-        {children}
-      </Link>
-    </Button>
-  )
+  const from = (useLocation().state as { from?: NavOrigin } | null)?.from
+  const target = from ? from.pathname + from.search : to
+  const label = from ? `Back to ${pageLabel(from.pathname)}` : children
+  return <SharedBackLink to={target}>{label}</SharedBackLink>
 }

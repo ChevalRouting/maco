@@ -1,0 +1,6 @@
+instances:
+  local:
+    url: https://localhost:8080
+    token_env: MACO_API_TOKEN
+    tls:
+      skip_verify: false

@@ -10,6 +10,8 @@ import (
 
 // @Summary listSnapshots
 // @ID listSnapshots
+// @Description List internal snapshots for a VM. Use a returned tag unchanged for restoreSnapshot and deleteSnapshot. Snapshots are not independent backup copies.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -30,6 +32,8 @@ func (s *Server) listSnapshots(w http.ResponseWriter, r *http.Request) {
 
 // @Summary createSnapshot
 // @ID createSnapshot
+// @Description Create an internal snapshot of a VM. Supply a tag in the request body and wait for the job to complete before using it. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Accept json
@@ -53,6 +57,8 @@ func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {
 
 // @Summary restoreSnapshot
 // @ID restoreSnapshot
+// @Description Restore a VM to a snapshot tag returned by listSnapshots. This replaces its current state; wait for the restore job before further actions. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -72,6 +78,8 @@ func (s *Server) restoreSnapshot(w http.ResponseWriter, r *http.Request) {
 
 // @Summary deleteSnapshot
 // @ID deleteSnapshot
+// @Description Delete an internal VM snapshot identified by a tag from listSnapshots. This removes that restore point. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json

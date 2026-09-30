@@ -22,7 +22,7 @@ codesign -d --entitlements - "$(which qemu-system-aarch64)" | grep hypervisor
 Build the binary and boot a VM:
 
 ```bash
-make build
+task build
 
 ./maco image pull ubuntu-24.04-arm64
 ./maco vm new web1 --cpus 2 --memory 2048
@@ -35,7 +35,7 @@ Serve the web UI and HTTP API (start [Redis](building.md#redis-for-background-jo
 and build with the embedded UI first):
 
 ```bash
-make build-ui
+task build-ui
 MACO_REDIS_URL=redis://localhost:6379/0 MACO_ADMIN_PASSWORD=changeme ./maco serve --addr :8080
 ```
 
@@ -48,8 +48,8 @@ live in the SQLite database with bcrypt hashes and the browser holds a JWT.
 maco runs as root: it manages host networking (native bridges, feth pairs, VLAN
 interfaces) and privileged VM networking directly, without shelling out to
 `sudo`. QEMU reaches HVF through its own signing entitlement. The data directory
-defaults to `~/Library/Application Support/maco` (override with `--data-dir` or
-`MACO_DATA_DIR`, which matters under `sudo` since its HOME differs).
+defaults to `/Library/Application Support/maco` (override with `--data-dir` or
+`MACO_DATA_DIR`).
 
 ## How it fits together
 
@@ -79,6 +79,8 @@ defaults to `~/Library/Application Support/maco` (override with `--data-dir` or
 | Page | Purpose |
 |------|---------|
 | [install.md](install.md) | installing maco as a launchd daemon and building the .pkg |
+| [pwa.md](pwa.md) | installing the online web app and deferred iPad validation |
+| [mcp.md](mcp.md) | agent access through the standalone multi-instance MCP server |
 | [cli.md](cli.md) | `maco` command reference |
 | [authentication.md](authentication.md) | accounts, JWT sessions, and the admin/viewer role model |
 | [security.md](security.md) | trust model, root/QEMU isolation limits, Redis auth, image integrity |
@@ -100,6 +102,8 @@ published documentation site.
 | Page | Purpose |
 |------|---------|
 | [internal/system-flow.md](internal/system-flow.md) | diagrams of UI, API, jobs, QEMU and filesystem flows |
+| [internal/manifest-schema-plan.md](internal/manifest-schema-plan.md) | versioned manifest schemas, validation, and MCP discovery |
+| [internal/native-apple-app-plan.md](internal/native-apple-app-plan.md) | native Mac/iPad app milestones, SwiftUI navigation, and wireframes |
 | [internal/usb-passthrough-plan.md](internal/usb-passthrough-plan.md) | USB implementation plan and follow-up scope |
 
 See [Network modes](network-modes.md) for native bridge/VLAN, vmnet physical uplink, and User NAT creation.

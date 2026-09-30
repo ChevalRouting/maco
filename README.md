@@ -26,7 +26,8 @@ QEMU cannot use HVF and VMs will not boot.
 ## Build
 
 ```bash
-make build
+brew install go-task
+task build
 ```
 
 This produces the `maco` binary and the native `maco-net-helper` in the repo
@@ -66,7 +67,7 @@ the SQLite cache is always rebuildable from them.
 Build the binary with the UI embedded, start Redis, and serve:
 
 ```bash
-make build-ui
+task build-ui
 brew services start redis
 MACO_ADMIN_PASSWORD=changeme ./maco serve --addr :8080
 ```
@@ -115,3 +116,9 @@ The project itself isn't actually that complicated. It's basically calling exter
 
 So yes, you can consider this project AI slop. But it's also what actually powers my Mac mini server running VMs in my homelab. It's useful, it works, and considering it took around 10 hours to build, I think that's mooooore than a success, IMO.
 
+
+## MCP agent access
+
+Build the standalone stdio server with `task build-mcp`. Agents can manage
+named Maco instances using API keys, including VM status, creation, backups,
+snapshots, networking, storage, and jobs. See [MCP setup and tools](docs/mcp.md).

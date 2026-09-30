@@ -19,8 +19,9 @@ type shellResize struct {
 
 // @Summary hostConsole
 // @ID hostConsole
+// @Description Interactive host shell over WebSocket. Not exposed as a request/response MCP tool.
+// @x-maco {"expose":false,"readOnly":true,"transport":"unsupported"}
 // @Tags host
-// @Description WebSocket upgrade. Send {"token":"<JWT>"} as the first message within five seconds, then binary stdin frames and {"cols","rows"} JSON resize frames. Streams a login shell on the maco host and requires the administrator role.
 // @Success 101 "WebSocket upgrade"
 // @Router /api/host/console [get]
 func (s *Server) hostConsole(w http.ResponseWriter, r *http.Request) {

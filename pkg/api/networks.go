@@ -10,6 +10,8 @@ import (
 
 // @Summary listNetworks
 // @ID listNetworks
+// @Description List configured networks and their IDs, modes, and applied topology. Use IDs from this response in VM interface requests. Applied fields describe engine-owned state, not authoring inputs.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags networks
 // @Security BearerAuth
 // @Produce json
@@ -29,6 +31,8 @@ func (s *Server) listNetworks(w http.ResponseWriter, r *http.Request) {
 
 // @Summary createNetwork
 // @ID createNetwork
+// @Description Create a named network. Discover host interface names with listInterfaces. Mode bridge supports members, address (IPv4 CIDR), and vlans; vmnet-bridged requires uplink; vlan requires parent and tag (1 to 4094). Host address does not create DHCP or routing. Use the request schema rather than copying a stored network manifest. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags networks
 // @Security BearerAuth
 // @Produce json
@@ -51,6 +55,8 @@ func (s *Server) createNetwork(w http.ResponseWriter, r *http.Request) {
 
 // @Summary applyNetwork
 // @ID applyNetwork
+// @Description Reconcile the selected network configuration onto the host. Can affect host connectivity; inspect listNetworks and listInterfaces before applying. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags networks
 // @Security BearerAuth
 // @Produce json
@@ -65,6 +71,8 @@ func (s *Server) applyNetwork(w http.ResponseWriter, r *http.Request) {
 
 // @Summary destroyNetwork
 // @ID destroyNetwork
+// @Description Delete a configured network and clean up host resources owned by Maco. May disrupt attached VMs. Borrowed host interfaces are retained. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags networks
 // @Security BearerAuth
 // @Produce json
@@ -79,6 +87,8 @@ func (s *Server) destroyNetwork(w http.ResponseWriter, r *http.Request) {
 
 // @Summary updateNetwork
 // @ID updateNetwork
+// @Description Replace the desired settings of an existing network using its ID from listNetworks. Read existing configuration first and supply the desired complete settings. This is not an arbitrary manifest replacement; applied bookkeeping is managed by Maco. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags networks
 // @Security BearerAuth
 // @Produce json

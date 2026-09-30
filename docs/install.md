@@ -47,7 +47,7 @@ serve` retries until Redis becomes reachable.
 Build the installer from a checkout (requires Node for the embedded UI):
 
 ```bash
-make pkg VERSION=0.1.0
+task pkg VERSION=0.1.0
 ```
 
 This produces `maco-0.1.0.pkg`. It is unsigned, so install it from the command
@@ -70,7 +70,7 @@ the first run, or change it later with `maco user passwd admin`.
 Without the installer, build and register everything in one step:
 
 ```bash
-make build-ui
+task build-ui
 sudo ./maco install
 ```
 
@@ -89,13 +89,61 @@ accepts:
   of the generated self-signed pair. Both must be given together; the daemon is
   pointed at these paths.
 
-`make` compiles `maco-net-helper` and embeds it into the `maco` binary, so a
-production build (`make build-ui` or the `.pkg`) is self-contained: `maco
+`task build` compiles `maco-net-helper` and embeds it into the `maco` binary, so a
+production build (`task build-ui` or the `.pkg`) is self-contained: `maco
 install` extracts the helper from itself. A plain `go build` (no `prod` tag) has
 no embedded helper; in that case `maco install` falls back to a `maco-net-helper`
 sitting next to the binary, or pass `--helper`. `maco service install` remains
 available to re-register the launchd daemon without recopying binaries or
 regenerating the certificate.
+
+## Deploy over SSH
+
+From your development Mac:
+
+```bash
+task deploy HOST=admin@mac-mini.local
+```
+
+The task builds production Maco with the embedded UI and networking helper,
+creates a temporary directory on the destination, and uploads the binary and
+installer script with SCP. It then opens an SSH terminal and runs:
+
+```bash
+codesign --sign - --force --preserve-metadata=entitlements,requirements,flags,runtime maco
+codesign --verify --strict maco
+sudo ./maco service uninstall
+sudo ./maco install
+```
+
+Enter the remote account's sudo password when prompted. `HOST` can also be an
+SSH config alias, allowing custom ports, identity files, and jump hosts. The
+destination must already have Maco's runtime dependencies installed. The build
+defaults to Apple Silicon (`darwin/arm64`).
+
+Pass installer options after `--`, particularly when the existing installation
+uses a custom data directory, address, or TLS certificate:
+
+```bash
+task deploy HOST=admin@mac-mini.local VERSION=0.1.0 -- \
+  --data-dir '/Library/Application Support/maco' --addr :8443
+```
+
+Without these options, `maco install` uses its normal defaults; deployment does
+not recover settings from the old launchd plist. Uninstall leaves VM data and
+certificates in place, but stops the Maco daemon and its managed Redis service.
+
+Service uninstall and reload now report launchctl errors and wait up to 60
+seconds per service for the launchd registration and old process to disappear.
+If shutdown fails or times out, installation stops. This prevents bootstrapping
+a replacement while the old service is still exiting. A manually started
+`maco serve` process is not managed by this task.
+
+Signing completes before services are stopped. Uploads use a fresh staging
+directory instead of overwriting the running binary. Successful deployment
+removes the staged files; a failed remote installation leaves them in place
+and prints their location for diagnosis. Deployment does not automatically
+roll back a failed installation.
 
 ## Managing the service
 
@@ -131,5 +179,5 @@ sudo rm /usr/local/bin/maco /usr/local/bin/maco-net-helper
 ```
 
 VM manifests, disks, and the state cache under
-`~/Library/Application Support/maco` (root's home when run as the daemon) are
-left in place. Remove that directory to discard them.
+`/Library/Application Support/maco` are left in place. Remove that directory to
+discard them.

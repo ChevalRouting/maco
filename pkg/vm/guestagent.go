@@ -81,28 +81,51 @@ func (d *Driver) GuestAgentInfo(id string) (*GuestAgentInfo, error) {
 	return info, nil
 }
 
-func (d *Driver) freezeGuest(id string) (bool, error) {
+const (
+	freezeTimeout      = 60 * time.Second
+	thawTimeout        = 2 * time.Minute
+	thawCommandTimeout = 30 * time.Second
+)
+
+func (d *Driver) freezeGuest(id string) (froze bool, err error) {
 	client, err := dialQGA(d.qgaPath(id), 3*time.Second)
 	if err != nil {
 		return false, nil
 	}
-	defer client.close()
-	if err := client.execute("guest-fsfreeze-freeze", nil, nil); err != nil {
-		thawErr := d.thawGuest(id)
-		if thawErr != nil {
-			return false, errors.Join(err, fmt.Errorf("recover uncertain freeze: %w", thawErr))
-		}
+	defer func() { _ = client.close() }()
+	if err := client.conn.SetDeadline(time.Now().Add(freezeTimeout)); err != nil {
 		return false, err
+	}
+	if err := client.execute("guest-fsfreeze-freeze", nil, nil); err != nil {
+		return true, err
 	}
 	return true, nil
 }
 
 func (d *Driver) thawGuest(id string) error {
+	deadline := time.Now().Add(thawTimeout)
+	var last error
+	for {
+		last = d.thawOnce(id)
+		if last == nil {
+			return nil
+		}
+		if !time.Now().Before(deadline) {
+			return last
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func (d *Driver) thawOnce(id string) error {
 	client, err := dialQGA(d.qgaPath(id), 5*time.Second)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = client.close() }()
+	if err := client.conn.SetDeadline(time.Now().Add(thawCommandTimeout)); err != nil {
+		return err
+	}
 	return client.execute("guest-fsfreeze-thaw", nil, nil)
 }
 

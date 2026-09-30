@@ -39,6 +39,12 @@ belong in the tree are machine directives (`//go:build`, `//go:embed`,
 the OpenAPI spec. Naming and structure must make the intent clear on their own;
 if a fragment cannot be understood without prose, restructure it until it can.
 
+The same rule holds for the TypeScript frontend: no comments, the only allowed
+`//` and `/* */` lines being required tooling directives (`/// <reference ... />`,
+`@ts-expect-error`, `eslint-disable-*`). Generated code is exempt because it is
+never hand-edited: `web/src/api/generated/` and the sqlc output in
+`pkg/db/generated/` keep their generator headers as-is.
+
 ### No inline functions and structs
 
 Anonymous functions and anonymous struct types in the middle of logic hurt
@@ -99,4 +105,4 @@ Lowercase imperative subject, optionally prefixed by the touched area (`vm: ...`
 
 ## Linting
 
-Run `make lint` before pushing: `golangci-lint` (config in `.golangci.yml`).
+Run `task lint` before pushing: `golangci-lint` (config in `.golangci.yml`).

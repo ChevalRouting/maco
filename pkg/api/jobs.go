@@ -25,6 +25,8 @@ func (s *Server) submitJob(w http.ResponseWriter, r *http.Request, payload jobs.
 
 // @Summary listJobs
 // @ID listJobs
+// @Description List asynchronous jobs with state, IDs, and logs. Filter by state or search and use page/page_size for pagination. States are pending, running, succeeded, or failed.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags jobs
 // @Security BearerAuth
 // @Produce json
@@ -75,6 +77,8 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 
 // @Summary getJob
 // @ID getJob
+// @Description Read a job by its returned job ID, including state, logs, result, and error. succeeded confirms completion; pending or running does not. A failed job may already have produced partial effects; inspect it before repeating the action.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags jobs
 // @Security BearerAuth
 // @Produce json

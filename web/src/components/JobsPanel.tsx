@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Button } from 'cheval-ui'
 import { CheckCircle2, ChevronDown, ChevronUp, CircleAlert, Clock, ListTodo, LoaderCircle } from 'lucide-react'
 import { type Job } from '../api'
-import { activityName, activityState } from '../ux'
+import { activityName, activityState, navOrigin } from '../ux'
 import { useJobs } from '../hooks/useJobs'
 import { useJobTracking } from '../hooks/useJobTracking'
 import { JobsList } from './JobsList'
@@ -25,7 +25,8 @@ export function JobsPanel() {
   const [expanded, setExpanded] = useState(initialExpanded)
   const resource = useJobs()
   const { notification } = useJobTracking()
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const { pathname } = location
 
   const active = resource.data
     .filter(job => job.action !== 'vm.screenshot' && (isRunning(job) || isPending(job)))
@@ -99,6 +100,7 @@ export function JobsPanel() {
               <Link
                 key={updated ? `${job.id}:${notification.sequence}` : job.id}
                 to={`/jobs/${encodeURIComponent(job.id)}`}
+                state={{ from: navOrigin(location) }}
                 title={`${label} · ${status}${job.error ? ` · ${job.error}` : ''}`}
                 className={`min-w-0 items-center gap-2 rounded-md bg-muted px-2 py-1 text-xs hover:bg-muted/80 ${updated ? 'jobs-preview-bump' : ''} ${primary ? 'flex flex-1' : 'hidden max-w-72 md:flex'}`}
               >

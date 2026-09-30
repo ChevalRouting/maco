@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/m-vinc/maco/pkg/l2"
+	"github.com/m-vinc/maco/pkg/net/datapath"
 )
 
 var ErrNetworkStateUncertain = errors.New("network change needs recovery; stop/start the VM to reconcile")
@@ -66,8 +66,6 @@ func networkBackend(nic InterfaceSpec) (map[string]any, error) {
 		}
 		backend["type"], backend["server"] = "stream", false
 		backend["addr"] = map[string]string{"type": "unix", "path": nic.Socket}
-	case NetworkVmnetHost, NetworkVmnetShared:
-		backend["type"] = string(nic.Network)
 	case NetworkVmnetBridged:
 		if nic.Uplink == "" {
 			return nil, fmt.Errorf("vmnet-bridged requires an uplink")
@@ -119,7 +117,7 @@ func (d *Driver) ChangeInterface(ctx context.Context, id string, before, after *
 			copy.MAC = InterfaceMAC(id, copy.ID)
 		}
 		if copy.Network == NetworkBridge {
-			copy.Socket = l2.Socket(filepath.Join(d.vmRunDir(id), "interfaces", copy.ID))
+			copy.Socket = datapath.Socket(filepath.Join(d.vmRunDir(id), "interfaces", copy.ID))
 		}
 		return &copy
 	}
@@ -276,13 +274,13 @@ func (d *Driver) startInterfaceHelper(dir, bridge string) error {
 	if d.startNetworkHelper != nil {
 		return d.startNetworkHelper(dir, bridge)
 	}
-	return l2.Start(dir, bridge)
+	return datapath.Start(dir, bridge)
 }
 func (d *Driver) stopInterfaceHelper(dir string) error {
 	if d.stopNetworkHelper != nil {
 		return d.stopNetworkHelper(dir)
 	}
-	return l2.Stop(dir)
+	return datapath.Stop(dir)
 }
 
 func (d *Driver) writeNetworkChange(id string, data []byte) error {

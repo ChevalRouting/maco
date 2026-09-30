@@ -31,9 +31,11 @@ var actionLabels = map[string]string{
 	"vm.create":           "Create virtual machine",
 	"vm.start":            "Start virtual machine",
 	"vm.shutdown":         "Guest shutdown",
+	"vm.reboot":           "Reboot virtual machine",
 	"vm.stop":             "Stop virtual machine",
 	"vm.delete":           "Delete virtual machine",
 	"vm.hardware":         "Update VM hardware",
+	"vm.guest-setup":      "Update guest setup",
 	"vm.disk.add":         "Add VM disk",
 	"vm.disk.grow":        "Grow VM disk",
 	"vm.disk.remove":      "Remove VM disk",
@@ -48,6 +50,9 @@ var actionLabels = map[string]string{
 	"network.create":      "Create network",
 	"network.apply":       "Apply network",
 	"network.destroy":     "Delete network",
+	"boot.reconcile":      "Reconcile on boot",
+	"host.poweroff":       "Power off host",
+	"host.reboot":         "Reboot host",
 }
 
 func Label(action string) string {

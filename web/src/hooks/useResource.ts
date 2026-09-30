@@ -11,8 +11,6 @@ function loadShared<T>(load: () => Promise<T>): Promise<T> {
   return request
 }
 
-// Initial HTTP snapshot, then refresh only when the shared WebSocket signals
-// a change. Serialize loads and retain a dirty flag for changes during a load.
 export function useResource<T>(load: () => Promise<T>, initial: T, domain: string) {
   const [data, setData] = useState(initial)
   const [error, setError] = useState('')

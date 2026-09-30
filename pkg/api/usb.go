@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -11,6 +12,8 @@ import (
 
 // @Summary listUSBDevices
 // @ID listUSBDevices
+// @Description List USB devices detected on the Maco host. Use the reported identifiers to prepare an assignment or attachment request.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags usb
 // @Security BearerAuth
 // @Produce json
@@ -29,6 +32,8 @@ func (s *Server) listUSBDevices(w http.ResponseWriter, r *http.Request) {
 
 // @Summary listVMUSB
 // @ID listVMUSB
+// @Description Inspect USB devices attached or assigned to a VM, including attachment identifiers needed for detachUSB.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -48,6 +53,8 @@ func (s *Server) listVMUSB(w http.ResponseWriter, r *http.Request) {
 
 // @Summary attachUSB
 // @ID attachUSB
+// @Description Attach a detected host USB device to the selected VM. Discover devices with listUSBDevices and use the exact identifiers from that response. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -85,6 +92,8 @@ func (s *Server) attachUSB(w http.ResponseWriter, r *http.Request) {
 
 // @Summary detachUSB
 // @ID detachUSB
+// @Description Detach a USB device using the VM ID and attachment identifier returned by listVMUSB. This can interrupt guest access to the device. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -112,6 +121,8 @@ func (s *Server) detachUSB(w http.ResponseWriter, r *http.Request) {
 
 // @Summary assignUSB
 // @ID assignUSB
+// @Description Persist a USB assignment for a VM using vendor/product identifiers and optional serial matching. Discover supported values with listUSBDevices. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -144,6 +155,8 @@ func (s *Server) assignUSB(w http.ResponseWriter, r *http.Request) {
 
 // @Summary unassignUSB
 // @ID unassignUSB
+// @Description Remove a persistent USB assignment by its key from listVMUSB. Use the exact returned key rather than constructing one. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -157,6 +170,9 @@ func (s *Server) assignUSB(w http.ResponseWriter, r *http.Request) {
 // @Router /api/vms/{id}/usb/assignments/{key} [delete]
 func (s *Server) unassignUSB(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
+	if decoded, err := url.PathUnescape(key); err == nil {
+		key = decoded
+	}
 	if key == "" || len(key) > 512 {
 		writeError(w, http.StatusBadRequest, "invalid USB assignment")
 		return

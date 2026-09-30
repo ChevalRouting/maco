@@ -5,17 +5,20 @@ import (
 	"sort"
 
 	"github.com/m-vinc/maco/pkg/image"
+	"github.com/m-vinc/maco/pkg/types"
 )
 
 type CatalogImage struct {
-	ID          string `json:"id"`
-	Distro      string `json:"distro"`
-	Version     string `json:"version"`
-	Arch        string `json:"arch"`
-	DisplayName string `json:"display_name"`
-	Description string `json:"description"`
-	Downloaded  bool   `json:"downloaded"`
-	SizeBytes   int64  `json:"size_bytes"`
+	ID           string                  `json:"id"`
+	Distro       string                  `json:"distro"`
+	Version      string                  `json:"version"`
+	Arch         string                  `json:"arch"`
+	DisplayName  string                  `json:"display_name"`
+	Description  string                  `json:"description"`
+	Tags         []string                `json:"tags"`
+	Downloaded   bool                    `json:"downloaded"`
+	SizeBytes    int64                   `json:"size_bytes"`
+	Provisioning []types.GuestCapability `json:"provisioning"`
 }
 
 func (e *Engine) Catalog() []CatalogImage {
@@ -24,14 +27,16 @@ func (e *Engine) Catalog() []CatalogImage {
 	for _, img := range image.Catalog {
 		size, downloaded := image.CachedSize(dir, img)
 		result = append(result, CatalogImage{
-			ID:          img.Name,
-			Distro:      img.Distro,
-			Version:     img.Version,
-			Arch:        img.Arch,
-			DisplayName: img.DisplayName,
-			Description: img.Description,
-			Downloaded:  downloaded,
-			SizeBytes:   size,
+			ID:           img.Name,
+			Distro:       img.Distro,
+			Version:      img.Version,
+			Arch:         img.Arch,
+			DisplayName:  img.DisplayName,
+			Description:  img.Description,
+			Tags:         append([]string{}, img.Tags...),
+			Downloaded:   downloaded,
+			SizeBytes:    size,
+			Provisioning: image.Provisioning(img),
 		})
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].DisplayName < result[j].DisplayName })

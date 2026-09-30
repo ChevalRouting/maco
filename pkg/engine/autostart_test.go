@@ -7,7 +7,7 @@ import (
 
 func TestAutomaticStartupCanBeChangedAfterCreation(t *testing.T) {
 	eng := testEngine(t)
-	manifest, err := eng.CreateVM(CreateVMParams{Name: "startup-preference", Image: "ubuntu-24.04-arm64", CPUs: 2, MemoryMiB: 2048, DiskSizeGiB: 20, Username: "maco"})
+	manifest, err := eng.CreateVM(CreateVMParams{Name: "startup-preference", Image: "ubuntu-24.04-arm64", CPUs: 2, MemoryMiB: 2048, DiskSizeGiB: 20}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

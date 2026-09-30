@@ -49,17 +49,20 @@ func (j Job) Private() bool {
 }
 
 type Payload struct {
-	Interface engine.InterfaceParams      `json:"interface"`
-	USB       engine.USBParams            `json:"usb"`
-	Hardware  engine.UpdateHardwareParams `json:"hardware"`
-	Disk      engine.DiskParams           `json:"disk"`
-	ID        string                      `json:"id"`
-	Action    string                      `json:"action"`
-	Target    string                      `json:"target"`
-	VM        engine.CreateVMParams       `json:"vm"`
-	Network   engine.CreateNetworkParams  `json:"network"`
-	Backup    engine.BackupParams         `json:"backup"`
-	Snapshot  engine.SnapshotParams       `json:"snapshot"`
+	Interface  engine.InterfaceParams      `json:"interface"`
+	USB        engine.USBParams            `json:"usb"`
+	Hardware   engine.UpdateHardwareParams `json:"hardware"`
+	Disk       engine.DiskParams           `json:"disk"`
+	ID         string                      `json:"id"`
+	Action     string                      `json:"action"`
+	Target     string                      `json:"target"`
+	Force      bool                        `json:"force"`
+	VM         engine.CreateVMParams       `json:"vm"`
+	SSHKeys    []string                    `json:"ssh_keys"`
+	Network    engine.CreateNetworkParams  `json:"network"`
+	Backup     engine.BackupParams         `json:"backup"`
+	Snapshot   engine.SnapshotParams       `json:"snapshot"`
+	GuestSetup engine.GuestSetupParams     `json:"guest_setup"`
 }
 
 type Service struct {
@@ -344,7 +347,7 @@ func (s *Service) execute(ctx context.Context, p Payload) (string, error) {
 	case "vm.usb.detach":
 		return p.Target, s.engine.DetachUSB(ctx, p.Target, p.USB.AttachmentID)
 	case "vm.create":
-		m, err := s.engine.CreateVM(p.VM)
+		m, err := s.engine.CreateVM(p.VM, p.SSHKeys)
 		if err != nil {
 			return "", err
 		}
@@ -357,12 +360,16 @@ func (s *Service) execute(ctx context.Context, p Payload) (string, error) {
 		return p.Target, s.engine.ForceStopVM(ctx, p.Target)
 	case "vm.shutdown":
 		return p.Target, s.engine.ShutdownVM(p.Target)
+	case "vm.reboot":
+		return p.Target, s.engine.RebootVM(p.Target)
 	case "vm.disk.add", "vm.disk.remove", "vm.disk.grow":
 		return p.Target, s.engine.ManageDisk(ctx, p.Target, p.Action, p.Disk)
 	case "vm.interface.add", "vm.interface.update", "vm.interface.remove":
 		return p.Target, s.engine.ManageInterfaceContext(ctx, p.Target, p.Action, p.Interface)
 	case "vm.hardware":
 		return p.Target, s.engine.UpdateHardware(ctx, p.Target, p.Hardware)
+	case "vm.guest-setup":
+		return p.Target, s.engine.SetGuestSetup(ctx, p.Target, p.GuestSetup)
 	case "vm.screenshot":
 		return p.Target, s.engine.ScreenshotVM(p.Target)
 	case "vm.delete":
@@ -411,9 +418,30 @@ func (s *Service) execute(ctx context.Context, p Payload) (string, error) {
 		return p.Target, s.engine.DestroyNetwork(p.Target)
 	case "catalog.download":
 		return p.Target, s.engine.DownloadCatalogImage(ctx, p.Target)
+	case "boot.reconcile":
+		return s.bootReconcile(ctx)
+	case "host.poweroff":
+		return p.Target, s.engine.PowerOffHost(ctx, p.Force)
+	case "host.reboot":
+		return p.Target, s.engine.RebootHost(ctx, p.Force)
 	default:
 		return "", fmt.Errorf("unknown action %q", p.Action)
 	}
+}
+
+func (s *Service) bootReconcile(ctx context.Context) (string, error) {
+	err := s.engine.BootReconcile(ctx)
+	targets, listErr := s.engine.AutostartTargets()
+	if listErr != nil {
+		return "host", errors.Join(err, listErr)
+	}
+	for _, id := range targets {
+		log.Ctx(ctx).Info().Str("vm", id).Msg("Queuing autostart")
+		if _, submitErr := s.Submit(ctx, Payload{Action: "vm.start", Target: id}); submitErr != nil {
+			err = errors.Join(err, fmt.Errorf("enqueue start %s: %w", id, submitErr))
+		}
+	}
+	return "host", err
 }
 
 type jobWriter struct {

@@ -18,7 +18,7 @@ func TestHardwareUpdates(t *testing.T) {
 	}
 
 	eng := New(paths)
-	manifest, err := eng.CreateVM(CreateVMParams{Name: "hardware-test", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4, Username: "maco"})
+	manifest, err := eng.CreateVM(CreateVMParams{Name: "hardware-test", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

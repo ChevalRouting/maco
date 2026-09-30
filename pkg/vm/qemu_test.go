@@ -82,7 +82,7 @@ func TestMediaBootOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "virtio-blk-pci,drive=bootdisk,bootindex=2") || !strings.Contains(joined, "scsi-cd,bus=scsi.0,drive="+diskNodeName("installer")+",bootindex=1") || !strings.Contains(joined, "format=raw,readonly=on,file=/installer.iso") {
+	if !strings.Contains(joined, "scsi-hd,bus=scsi.0,drive=bootdisk,bootindex=2") || !strings.Contains(joined, "scsi-cd,bus=scsi.0,drive="+diskNodeName("installer")+",bootindex=1") || !strings.Contains(joined, "format=raw,readonly=on,file=/installer.iso") {
 		t.Fatalf("invalid media args: %s", joined)
 	}
 }
@@ -110,4 +110,30 @@ func TestMultipleVMInterfaces(t *testing.T) {
 	if strings.Contains(strings.Join(args, " "), "virtio-net-pci") {
 		t.Fatal("empty interfaces created default NIC")
 	}
+}
+
+func TestIgnitionFwCfgArgs(t *testing.T) {
+	spec := Spec{ID: "flatcar", Name: "flatcar", Firmware: "/firmware", DiskPath: "/disk", IgnitionPath: "/run/config.ign"}
+	args, err := spec.buildArgs("/run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "-fw_cfg name=opt/org.flatcar-linux/config,file=/run/config.ign") {
+		t.Fatalf("missing ignition fw_cfg: %s", joined)
+	}
+
+	spec.IgnitionPath = ""
+	if strings.Contains(strings.Join(mustArgs(t, spec), " "), "fw_cfg") {
+		t.Fatal("fw_cfg emitted without an ignition path")
+	}
+}
+
+func mustArgs(t *testing.T, spec Spec) []string {
+	t.Helper()
+	args, err := spec.buildArgs("/run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return args
 }

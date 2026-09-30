@@ -16,6 +16,8 @@ type CreateMediaRequest struct {
 
 // @Summary listMedia
 // @ID listMedia
+// @Description List uploaded ISO files and disk images with their IDs and usage. Use returned media IDs in VM creation and updateMedia requests.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags media
 // @Security BearerAuth
 // @Produce json
@@ -34,6 +36,8 @@ func (s *Server) listMedia(w http.ResponseWriter, r *http.Request) {
 
 // @Summary createMedia
 // @ID createMedia
+// @Description Create a blank named disk image in the media library. size_gib is the requested capacity in GiB; consult diskStorage first. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json"}
 // @Tags media
 // @Security BearerAuth
 // @Produce json
@@ -61,6 +65,8 @@ const maxISOUpload = 10 << 30
 
 // @Summary uploadISO
 // @ID uploadISO
+// @Description Upload an ISO file from the MCP host into Maco media storage, up to 10 GiB including multipart framing. Use an absolute local file_path. Returns the new media record; it does not attach the ISO to a VM. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"multipart","upload":{"field":"file","maxBytes":10737418240,"extensions":[".iso"]}}
 // @Tags media
 // @Security BearerAuth
 // @Produce json
@@ -115,6 +121,8 @@ const maxImageUpload = 64 << 30
 
 // @Summary uploadImage
 // @ID uploadImage
+// @Description Upload a .qcow2 or .img disk image from the MCP host, up to 64 GiB including multipart framing. Use an absolute local file_path. Inspect the returned media record before attaching or using it. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"multipart","upload":{"field":"file","maxBytes":68719476736,"extensions":[".qcow2",".img"]}}
 // @Tags media
 // @Security BearerAuth
 // @Produce json
@@ -170,6 +178,8 @@ func isDiskImage(name string) bool {
 
 // @Summary deleteMedia
 // @ID deleteMedia
+// @Description Delete the selected media library entry by ID from listMedia. This is destructive and can be rejected if media is still in use. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json"}
 // @Tags media
 // @Security BearerAuth
 // @Produce json
@@ -188,6 +198,8 @@ func (s *Server) deleteMedia(w http.ResponseWriter, r *http.Request) {
 
 // @Summary updateMedia
 // @ID updateMedia
+// @Description Update a VM ISO attachment and boot-order settings. Discover media IDs with listMedia and current settings with getVM. Boot entries use disk, disk:<disk-id>, and iso:<media-id>. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json"}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json

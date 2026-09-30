@@ -48,7 +48,7 @@ func newVMNewCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			params.Name = args[0]
-			m, err := eng().CreateVM(params)
+			m, err := eng().CreateVM(params, nil)
 			if err != nil {
 				return err
 			}
@@ -63,9 +63,6 @@ func newVMNewCommand() *cobra.Command {
 	cmd.Flags().IntVar(&params.CPUs, "cpus", 2, "number of vCPUs")
 	cmd.Flags().IntVar(&params.MemoryMiB, "memory", 2048, "memory in MiB")
 	cmd.Flags().IntVar(&params.DiskSizeGiB, "disk-size", 20, "virtual disk size in GiB")
-	cmd.Flags().StringVar(&params.Username, "user", "maco", "primary login user")
-	cmd.Flags().StringVar(&params.Password, "password", "maco", "login password")
-	cmd.Flags().StringVar(&params.SSHKey, "ssh-key", "", "authorized SSH public key")
 	cmd.Flags().StringVar(&params.Network, "network", "", "maco network to attach (empty = user-mode NAT)")
 	cmd.Flags().StringSliceVar(&params.Addresses, "address", nil, "static guest IPv4/IPv6 CIDRs (default DHCP)")
 	cmd.Flags().BoolVar(&params.Autostart, "autostart", false, "start this VM automatically on maco reconcile")

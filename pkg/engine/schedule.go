@@ -9,10 +9,10 @@ import (
 )
 
 type ScheduleParams struct {
-	Enabled       bool `json:"enabled" binding:"optional"`
-	IntervalHours int  `json:"interval_hours" binding:"optional"`
-	KeepLast      int  `json:"keep_last" binding:"optional"`
-	MaxAgeDays    int  `json:"max_age_days" binding:"optional"`
+	Enabled       bool `json:"enabled" binding:"optional" extensions:"x-maco-description=Enable automatic backups for this VM."`
+	IntervalHours int  `json:"interval_hours" binding:"optional" extensions:"x-maco-description=Hours between backups. Must be at least 1 when enabled." minimum:"0"`
+	KeepLast      int  `json:"keep_last" binding:"optional" extensions:"x-maco-description=Number of newest backups retained. Zero disables this retention limit." minimum:"0"`
+	MaxAgeDays    int  `json:"max_age_days" binding:"optional" extensions:"x-maco-description=Maximum backup age in days. Zero disables this retention limit." minimum:"0"`
 }
 
 func (e *Engine) GetSchedule(ctx context.Context, ref string) (*types.BackupSchedule, error) {

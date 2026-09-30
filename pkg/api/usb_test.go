@@ -57,7 +57,7 @@ func TestStoppedUSBSelectionCanBeQueued(t *testing.T) {
 	}
 	secret := []byte("usb-offline-test-secret")
 	server := New(paths, secret, nil, nil)
-	m, err := server.engine.CreateVM(engine.CreateVMParams{Name: "usb-offline", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4, Username: "maco"})
+	m, err := server.engine.CreateVM(engine.CreateVMParams{Name: "usb-offline", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

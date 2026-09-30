@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/m-vinc/maco/pkg/hostnet"
+	"github.com/m-vinc/maco/pkg/net/host"
 )
 
 type resourceHub struct {
@@ -81,7 +81,7 @@ func (s *Server) observeResources(ctx context.Context) {
 		"catalog":    func(context.Context) (any, error) { return s.engine.Catalog(), nil },
 		"disks":      func(context.Context) (any, error) { return s.engine.ListDisks() },
 		"storage":    func(context.Context) (any, error) { return s.engine.StorageStats() },
-		"interfaces": func(context.Context) (any, error) { return hostnet.Ports() },
+		"interfaces": func(context.Context) (any, error) { return host.Ports() },
 		"usb":        func(ctx context.Context) (any, error) { return s.engine.ListUSBDevices(ctx) },
 	}
 	for {

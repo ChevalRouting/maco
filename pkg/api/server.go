@@ -89,6 +89,9 @@ func (s *Server) mountProtected(r chi.Router) {
 	r.Get("/me/api-keys", s.listAPIKeys)
 	r.Post("/me/api-keys", s.createAPIKey)
 	r.Delete("/me/api-keys/{id}", s.revokeAPIKey)
+	r.Get("/me/ssh-keys", s.listSSHKeys)
+	r.Post("/me/ssh-keys", s.addSSHKey)
+	r.Delete("/me/ssh-keys/{id}", s.deleteSSHKey)
 	r.Get("/usb/devices", s.listUSBDevices)
 	r.Get("/vms/{id}/usb", s.listVMUSB)
 	r.Post("/vms/{id}/usb", s.attachUSB)
@@ -99,6 +102,9 @@ func (s *Server) mountProtected(r chi.Router) {
 	r.Post("/vms", s.createVM)
 	r.Get("/vms/{id}", s.getVM)
 	r.Patch("/vms/{id}/hardware", s.updateHardware)
+	r.Get("/interfaces/mac", s.suggestMAC)
+	r.Get("/vms/{id}/guest-setup", s.getGuestSetup)
+	r.Patch("/vms/{id}/guest-setup", s.updateGuestSetup)
 	r.Post("/vms/{id}/interfaces", s.addVMInterface)
 	r.Patch("/vms/{id}/interfaces/{interface}", s.updateVMInterface)
 	r.Delete("/vms/{id}/interfaces/{interface}", s.removeVMInterface)
@@ -110,6 +116,7 @@ func (s *Server) mountProtected(r chi.Router) {
 	r.Post("/vms/{id}/start", s.startVM)
 	r.Post("/vms/{id}/stop", s.stopVM)
 	r.Post("/vms/{id}/shutdown", s.shutdownVM)
+	r.Post("/vms/{id}/reboot", s.rebootVM)
 	r.Get("/vms/{id}/backups", s.listBackups)
 	r.Post("/vms/{id}/backups", s.createBackup)
 	r.Get("/vms/{id}/backups/schedule", s.getBackupSchedule)
@@ -129,6 +136,8 @@ func (s *Server) mountProtected(r chi.Router) {
 	r.Get("/disks", s.listDisks)
 	r.Get("/disks/stats", s.diskStorage)
 	r.Get("/host", s.hostInfo)
+	r.Post("/host/poweroff", s.powerOffHost)
+	r.Post("/host/reboot", s.rebootHost)
 	r.Get("/interfaces", s.listInterfaces)
 	r.Get("/images", s.listImages)
 	r.Get("/catalog", s.listCatalog)
@@ -140,8 +149,15 @@ func (s *Server) mountProtected(r chi.Router) {
 	r.Post("/media/image", s.uploadImage)
 	r.Delete("/media/{id}", s.deleteMedia)
 	r.Patch("/vms/{id}/media", s.updateMedia)
+	r.Get("/templates", s.listTemplates)
+	r.Post("/templates", s.createTemplate)
+	r.Get("/templates/{id}", s.getTemplate)
+	r.Put("/templates/{id}", s.updateTemplate)
+	r.Post("/templates/{id}/instantiate", s.instantiateTemplate)
+	r.Delete("/templates/{id}", s.deleteTemplate)
 	r.Get("/jobs", s.listJobs)
 	r.Get("/jobs/{id}", s.getJob)
+	r.Get("/jobs/{id}/wait", s.waitJob)
 }
 
 func (s *Server) mountStatic(r chi.Router) {
@@ -198,6 +214,8 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 
 // @Summary handleLogin
 // @ID handleLogin
+// @Description Exchange an account username and password for a login token. MCP uses registry credentials and does not expose login as a tool.
+// @x-maco {"expose":false,"readOnly":false,"transport":"unsupported"}
 // @Tags login
 // @Produce json
 // @Accept json
@@ -269,6 +287,9 @@ func (s *Server) notifyMutations(next http.Handler) http.Handler {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			if strings.HasPrefix(r.URL.Path, "/api/media") {
 				s.events.broadcast("media", "disks", "storage", "vms")
+			}
+			if strings.HasPrefix(r.URL.Path, "/api/templates") {
+				s.events.broadcast("templates")
 			}
 		}
 	})

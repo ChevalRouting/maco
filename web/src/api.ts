@@ -8,19 +8,26 @@ import type {
   EngineCatalogImage,
   EngineCreateNetworkParams,
   EngineCreateVmParams,
+  EngineCreateDiskParams,
+  EngineGuestSetupParams,
+  EngineGuestSetupView,
+  TypesGuestCapability,
   EngineDiskView,
   EngineHostInfo,
   EngineInterfaceParams,
   EngineMedia,
   EngineStorageStats,
+  EngineTemplate,
+  ApiTemplateRequest,
   EngineUpdateHardwareParams,
   EngineUsbAttachment,
   EngineUsbInventory,
   EngineVmView,
-  HostnetPort,
+  HostPort,
   JobsJob,
   JobsPage,
   TypesApiKey,
+  TypesSshKey,
   TypesBackupSchedule,
   TypesNetworkManifest,
   TypesVlan,
@@ -86,12 +93,17 @@ async function call<T>(result: Promise<{ data: T }>): Promise<T> {
 export type CurrentUser = ApiCurrentUser
 export type VMManifest = TypesVmManifest
 export type CreateVMParams = EngineCreateVmParams
+export type CreateDiskParams = EngineCreateDiskParams
+export type GuestSetupParams = EngineGuestSetupParams
+export type GuestSetupView = EngineGuestSetupView
+export type GuestCapability = TypesGuestCapability
 export type VMView = EngineVmView
 export type Network = TypesNetworkManifest
 export type VLAN = TypesVlan
 export type CreateNetworkParams = EngineCreateNetworkParams
 export type Job = JobsJob
 export type APIKey = TypesApiKey
+export type SSHKey = TypesSshKey
 export type GuestOSInfo = VmGuestOsInfo
 export type GuestIPAddress = VmGuestIpAddress
 export type GuestInterface = VmGuestInterface
@@ -104,11 +116,13 @@ export type VMDisk = TypesVmDisk
 export type DiskView = EngineDiskView
 export type StorageStats = EngineStorageStats
 export type HostInfo = EngineHostInfo
-export type NetworkInterface = HostnetPort
+export type NetworkInterface = HostPort
 export type USBDevice = UsbDevice
 export type USBInventory = EngineUsbInventory
 export type USBAttachment = EngineUsbAttachment
 export type Media = EngineMedia
+export type Template = EngineTemplate
+export type TemplateRequest = ApiTemplateRequest
 export type VMInterface = TypesVmInterface
 export type InterfaceParams = EngineInterfaceParams
 export type BackupInfo = EngineBackupInfo
@@ -181,6 +195,22 @@ export function createVM(body: CreateVMParams) {
   return call(api.createVm({ body }))
 }
 
+export function listSSHKeys() {
+  return call(api.listSshKeys())
+}
+
+export function addSSHKey(name: string, public_key: string) {
+  return call(api.addSshKey({ body: { name, public_key } }))
+}
+
+export function deleteSSHKey(id: string) {
+  return call(api.deleteSshKey({ path: { id } }))
+}
+
+export function suggestMAC() {
+  return call(api.suggestMac())
+}
+
 export function getGuestAgent(id: string) {
   return call(api.vmGuestAgent({ path: { id } }))
 }
@@ -195,6 +225,10 @@ export function stopVM(id: string) {
 
 export function shutdownVM(id: string) {
   return call(api.shutdownVm({ path: { id } }))
+}
+
+export function rebootVM(id: string) {
+  return call(api.rebootVm({ path: { id } }))
 }
 
 export function deleteVM(id: string) {
@@ -289,6 +323,14 @@ export function updateHardware(id: string, params: UpdateHardwareParams): Promis
   return call(api.updateHardware({ path: { id }, body: params }))
 }
 
+export function getGuestSetup(id: string): Promise<GuestSetupView> {
+  return call(api.getGuestSetup({ path: { id } }))
+}
+
+export function updateGuestSetup(id: string, params: GuestSetupParams): Promise<Job> {
+  return call(api.updateGuestSetup({ path: { id }, body: params }))
+}
+
 export function addDisk(id: string, name: string, size: number): Promise<Job> {
   return call(api.addDisk({ path: { id }, body: { name, size_gib: size } }))
 }
@@ -317,6 +359,14 @@ export function getDiskStorage() {
 
 export function getHost() {
   return call(api.hostInfo())
+}
+
+export function powerOffHost(force: boolean) {
+  return call(api.powerOffHost({ body: { force } }))
+}
+
+export function rebootHost(force: boolean) {
+  return call(api.rebootHost({ body: { force } }))
 }
 
 export function listInterfaces() {
@@ -373,6 +423,22 @@ export function deleteMedia(id: string) {
 
 export function updateMedia(id: string, isos: string[], boot_order: string[]) {
   return call(api.updateMedia({ path: { id }, body: { isos, boot_order } }))
+}
+
+export function listTemplates() {
+  return call(api.listTemplates())
+}
+
+export function createTemplate(body: TemplateRequest) {
+  return call(api.createTemplate({ body }))
+}
+
+export function updateTemplate(id: string, body: TemplateRequest) {
+  return call(api.updateTemplate({ path: { id }, body }))
+}
+
+export function deleteTemplate(id: string) {
+  return call(api.deleteTemplate({ path: { id } }))
 }
 
 function uploadMedia(kind: 'image' | 'iso', file: File, onProgress?: (fraction: number) => void) {

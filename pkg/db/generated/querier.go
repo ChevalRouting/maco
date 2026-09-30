@@ -12,8 +12,10 @@ type Querier interface {
 	CountUsers(ctx context.Context) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
+	CreateUserSSHKey(ctx context.Context, arg CreateUserSSHKeyParams) error
 	DeleteBackupSchedule(ctx context.Context, vmID string) error
 	DeleteUser(ctx context.Context, username string) error
+	DeleteUserSSHKey(ctx context.Context, arg DeleteUserSSHKeyParams) (int64, error)
 	DeleteVMState(ctx context.Context, id string) error
 	GetActiveAPIKeyByHash(ctx context.Context, tokenHash []byte) (GetActiveAPIKeyByHashRow, error)
 	GetBackupSchedule(ctx context.Context, vmID string) (BackupSchedule, error)
@@ -22,6 +24,7 @@ type Querier interface {
 	GetVMState(ctx context.Context, id string) (VmState, error)
 	ListAPIKeysByUser(ctx context.Context, userID string) ([]ListAPIKeysByUserRow, error)
 	ListBackupSchedules(ctx context.Context) ([]BackupSchedule, error)
+	ListUserSSHKeysByUser(ctx context.Context, userID string) ([]UserSshKey, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	ListVMStates(ctx context.Context) ([]VmState, error)
 	MarkBackupScheduleRun(ctx context.Context, arg MarkBackupScheduleRunParams) error

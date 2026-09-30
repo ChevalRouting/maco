@@ -33,7 +33,7 @@ func TestBackupLifecycle(t *testing.T) {
 		t.Skip("qemu-img not installed")
 	}
 	e := testEngine(t)
-	m := &types.VMManifest{ID: uuid.NewString(), Name: "gamma", Image: "img", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 10, Username: "maco"}
+	m := &types.VMManifest{ID: uuid.NewString(), Name: "gamma", Image: "img", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 10}
 	seedVMDisks(t, e, m, []string{"disk.qcow2"})
 
 	res, err := e.BackupVM(context.Background(), m.Name)
@@ -87,7 +87,7 @@ func TestSnapshotLifecycleOffline(t *testing.T) {
 		t.Skip("qemu-img not installed")
 	}
 	e := testEngine(t)
-	m := &types.VMManifest{ID: uuid.NewString(), Name: "delta", Image: "img", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 10, Username: "maco"}
+	m := &types.VMManifest{ID: uuid.NewString(), Name: "delta", Image: "img", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 10}
 	seedVMDisks(t, e, m, []string{"disk.qcow2"})
 
 	if _, err := e.CreateSnapshot(context.Background(), m.Name, SnapshotParams{Tag: "bad/name"}); err == nil {

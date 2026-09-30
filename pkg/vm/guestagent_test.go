@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"net"
+	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -106,5 +108,115 @@ func TestGuestAgentClient(t *testing.T) {
 	}
 	if err := client.execute("guest-fsfreeze-thaw", nil, nil); err != nil {
 		t.Fatalf("thaw: %v", err)
+	}
+}
+
+func serveFreezeAgent(t *testing.T, sock string, freezeFailures int32) *int32 {
+	t.Helper()
+	listener, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+
+	remaining := freezeFailures
+	var thaws int32
+
+	handle := func(conn net.Conn) {
+		defer func() { _ = conn.Close() }()
+		reader := bufio.NewReader(conn)
+		for {
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				return
+			}
+			var cmd struct {
+				Execute   string `json:"execute"`
+				Arguments struct {
+					ID json.RawMessage `json:"id"`
+				} `json:"arguments"`
+			}
+			if json.Unmarshal(bytes.TrimLeft(line, "\xff"), &cmd) != nil {
+				return
+			}
+			switch cmd.Execute {
+			case "guest-sync-delimited":
+				_, _ = conn.Write([]byte{0xff})
+				_, _ = conn.Write([]byte(`{"return":` + string(cmd.Arguments.ID) + "}\n"))
+			case "guest-fsfreeze-freeze":
+				if atomic.AddInt32(&remaining, -1) >= 0 {
+					_, _ = conn.Write([]byte(`{"error":{"class":"GenericError","desc":"busy"}}` + "\n"))
+				} else {
+					_, _ = conn.Write([]byte(`{"return":1}` + "\n"))
+				}
+			case "guest-fsfreeze-thaw":
+				atomic.AddInt32(&thaws, 1)
+				_, _ = conn.Write([]byte(`{"return":1}` + "\n"))
+			}
+		}
+	}
+
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			go handle(conn)
+		}
+	}()
+	return &thaws
+}
+
+func newFreezeTestDriver(t *testing.T) (*Driver, string) {
+	t.Helper()
+	dir, err := os.MkdirTemp("/tmp", "maco-qga-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	d := NewDriver(dir)
+	id := "vm"
+	if err := os.MkdirAll(d.vmRunDir(id), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return d, id
+}
+
+func TestFreezeGuestRequiresThawOnError(t *testing.T) {
+	d, id := newFreezeTestDriver(t)
+	serveFreezeAgent(t, d.qgaPath(id), 1)
+
+	froze, err := d.freezeGuest(id)
+	if err == nil {
+		t.Fatal("expected freeze error")
+	}
+	if !froze {
+		t.Fatal("freeze error must still report froze=true so the caller thaws the guest")
+	}
+}
+
+func TestFreezeGuestNoAgent(t *testing.T) {
+	d, id := newFreezeTestDriver(t)
+	froze, err := d.freezeGuest(id)
+	if err != nil {
+		t.Fatalf("no-agent freeze should be a no-op: %v", err)
+	}
+	if froze {
+		t.Fatal("without an agent no freeze happens and no thaw is required")
+	}
+}
+
+func TestThawGuestRetriesUntilAgentRecovers(t *testing.T) {
+	d, id := newFreezeTestDriver(t)
+	sock := d.qgaPath(id)
+
+	go func() {
+		time.Sleep(1200 * time.Millisecond)
+		serveFreezeAgent(t, sock, 0)
+	}()
+
+	if err := d.thawGuest(id); err != nil {
+		t.Fatalf("thaw should succeed once the agent comes back: %v", err)
 	}
 }

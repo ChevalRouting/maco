@@ -6,7 +6,7 @@ and Apple's Hypervisor.framework, so it is built and run on a Mac.
 ## Prerequisites
 
 ```bash
-brew install qemu
+brew install qemu go-task
 ```
 
 `qemu-system-aarch64` must carry the Hypervisor.framework entitlement, which
@@ -23,18 +23,31 @@ is needed.
 ## Build
 
 ```bash
-make build      # -> ./maco and ./maco-net-helper (darwin/arm64)
+task build      # -> ./maco and ./maco-net-helper (darwin/arm64)
 ```
 
-`make build` targets `darwin/arm64` by default. Other useful targets:
+`task build` targets `darwin/arm64` by default. Run `task` for the default build or `task --list` for all tasks. Other useful tasks:
 
 | Target | What it does |
 |--------|--------------|
-| `make build` | build the CLI and native networking helper |
-| `make test` | `go vet ./...` then `go test ./...` |
-| `make lint` | run `golangci-lint` |
-| `make tidy` | `go mod tidy` |
-| `make run ARGS="vm list"` | build then run with arguments |
+| `task build` | build the CLI and native networking helper |
+| `task build-mcp` | build the standalone MCP server |
+| `task build-ui` | build maco with the embedded web UI |
+| `task deploy HOST=user@mac` | build production maco and reinstall it over SSH |
+| `task test` | vet and test both Go modules, native helper and deployment scripts |
+| `task test-mcp` | vet and test the independent MCP module |
+| `task lint` | run `golangci-lint` |
+| `task tidy` | tidy both Go modules |
+| `task run -- vm list` | build then run with arguments |
+
+The MCP lives in its own `mcp/` Go module and needs no local QEMU or Maco
+daemon. See the [MCP walkthrough](mcp.md) for build and client configuration.
+
+Task replaces the former Makefile; task names retain the previous target names.
+For example, `task build EMBED=1` embeds the UI and `task pkg VERSION=0.1.0`
+builds a versioned installer. `VERSION`, `GOOS`, `GOARCH`, `GOFLAGS`, `GOTAGS`,
+`CC`, `BINARY`, and `PKG` can be overridden on the command line or through the
+environment. `task run ARGS="vm list"` also remains supported.
 
 ## Toolchain
 
@@ -79,7 +92,7 @@ The default URL is `redis://localhost:6379/0`. Override it with
 `MACO_REDIS_URL` or `maco serve --redis-url redis://localhost:6379/1`. The HTTP
 server does not start if Redis cannot be reached.
 
-Install a compatible linter for the Go toolchain before running `make lint`:
+Install a compatible linter for the Go toolchain before running `task lint`:
 
 ```bash
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0
@@ -92,11 +105,11 @@ dev server (HMR / React fast-refresh) as two processes:
 
 ```bash
 # terminal 1: the API only (a plain build embeds no UI, so serve is API-only)
-make build
+task build
 MACO_REDIS_URL=redis://localhost:6379/0 MACO_ADMIN_PASSWORD=changeme ./maco serve --addr :8080 --tls=false
 
 # terminal 2: the Vite dev server with hot reload
-make web-dev
+task web-dev
 ```
 
 Open http://localhost:5173. Vite serves the app with hot module replacement and
@@ -109,7 +122,7 @@ Build the embedded, production UI only when you want a single binary that serves
 it:
 
 ```bash
-make build-ui        # npm run build -> pkg/api/dist, then go build -tags prod
+task build-ui        # npm run build -> pkg/api/dist, then go build -tags prod
 ./maco serve         # serves the embedded SPA (no Vite needed)
 ```
 

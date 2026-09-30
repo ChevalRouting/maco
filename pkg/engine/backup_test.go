@@ -21,8 +21,8 @@ func TestBackupVM(t *testing.T) {
 	dataID := uuid.NewString()
 	m := &types.VMManifest{
 		ID: uuid.NewString(), Name: "beta", Image: "img", CPUs: 1, MemoryMiB: 128,
-		DiskSizeGiB: 10, Username: "maco",
-		Disks: []types.VMDisk{{ID: dataID, Name: "extra", SizeGiB: 5}},
+		DiskSizeGiB: 10,
+		Disks:       []types.VMDisk{{ID: dataID, Name: "extra", SizeGiB: 5}},
 	}
 	if err := e.vms.Save(m); err != nil {
 		t.Fatal(err)

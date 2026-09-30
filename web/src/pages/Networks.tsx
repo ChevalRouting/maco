@@ -45,7 +45,7 @@ export default function Networks() {
       <ResourceNotice resource={networks} name="networks" />
       <JobNotice error={action.error} />
       {!networks.loading && (networks.data.length ? (
-        <Table>
+        <Table className="table-cards">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>

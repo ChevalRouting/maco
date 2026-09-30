@@ -23,7 +23,7 @@ running QEMU processes -> actual state
    `qemu-system-aarch64` process accelerated with `-accel hvf`. It manages the
    process lifecycle over QMP and a pid file: start, graceful powerdown, and
    liveness-based status.
-3. **Images, firmware, and seed** (`pkg/image`, `pkg/firmware`, `pkg/cloudinit`).
+3. **Images, firmware, and seed** (`pkg/image`, `pkg/vm/firmware`, `pkg/provision/cloudinit`).
    Base cloud images are downloaded and cached into the data directory. The UEFI
    firmware is a maco-branded ARM64 edk2 build (with the maco boot logo) embedded
    in the binary and extracted into the data directory on first use, so maco does
@@ -53,10 +53,11 @@ running QEMU processes -> actual state
   qemu.pid serial.log qmp.sock qemu.log
 ```
 
-Runtime scratch lives under `/tmp` rather than the data directory because macOS
+Runtime scratch defaults to `/tmp` rather than the data directory because macOS
 caps unix-socket paths (used for QMP) at roughly 104 bytes, and the data
 directory may be arbitrarily deep. A short per-data-dir hash keeps concurrent
-maco instances from colliding.
+maco instances from colliding. Set `MACO_WORKDIR` to relocate this scratch
+elsewhere; keep the path short so socket paths stay under the limit.
 
 ## Privileges
 
@@ -67,8 +68,8 @@ helper still drops privilege after opening its descriptor. QEMU only needs the
 Hypervisor.framework entitlement (Homebrew signs `qemu-system-aarch64` with
 `com.apple.security.hypervisor`) and user-mode NAT needs no privilege, but since
 maco runs as root the VMs it launches run as root too. The data directory
-defaults to `~/Library/Application Support/maco`; override with `--data-dir` or
-`MACO_DATA_DIR` (relevant under `sudo`, whose HOME differs).
+defaults to `/Library/Application Support/maco`; override with `--data-dir` or
+`MACO_DATA_DIR`.
 
 ## Repository layout
 
@@ -85,12 +86,12 @@ defaults to `~/Library/Application Support/maco`; override with `--data-dir` or
 | `pkg/api` | chi HTTP API + embedded web UI (`maco serve`) |
 | `web` | React + Vite + cheval-ui frontend, built into `pkg/api/dist` |
 | `pkg/vm` | the QEMU/HVF process driver, QMP client, and interactive console |
-| `pkg/network` | network topology manifests and their reconcile |
-| `pkg/l2` | native BPF/feth port supervisor, helper and cleanup lifecycle |
-| `pkg/hostnet` | the macOS host-networking layer (reads via stdlib `net`, mutates via `ifconfig`) |
+| `pkg/net/vnet` | network topology manifests and their reconcile |
+| `pkg/net/datapath` | native BPF/feth port supervisor, helper and cleanup lifecycle |
+| `pkg/net/host` | the macOS host-networking layer (reads via stdlib `net`, mutates via `ifconfig`) |
 | `pkg/image` | cloud-image download, cache, and overlay creation |
-| `pkg/firmware` | maco-branded UEFI firmware, embedded and extracted on use |
-| `pkg/cloudinit` | NoCloud seed ISO generation |
+| `pkg/vm/firmware` | maco-branded UEFI firmware, embedded and extracted on use |
+| `pkg/provision/cloudinit` | NoCloud seed ISO generation |
 
 ## Networking
 
@@ -100,7 +101,7 @@ host bridge; `maco networks apply` compares it against the live interfaces and
 converges by creating the bridge, attaching existing and native VLAN members,
 and assigning its optional address. VM start applies the referenced network.
 
-`pkg/hostnet` reads interface state through the standard library `net` package
+`pkg/net/host` reads interface state through the standard library `net` package
 and `ifconfig`, and mutates it with privileged `ifconfig` calls. Manifests
 record which resources and attachments maco owns for later cleanup. Host
 reconciliation and VM lifecycle operations use file locks; network manifests

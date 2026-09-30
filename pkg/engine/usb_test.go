@@ -82,7 +82,7 @@ func usbTestEngine(t *testing.T, registry string) (*Engine, string, usb.Device) 
 	e.usbClaimsDir = filepath.Join(registry, "usb")
 	device := usb.Device{ID: strings.Repeat("a", 24), Fingerprint: strings.Repeat("b", 64), VendorID: 0x1050, ProductID: 0x0407, Bus: 1, Address: 2, Port: "1.2", Serial: "test", State: "available"}
 	e.usbDevices = func() ([]usb.Device, error) { return []usb.Device{device}, nil }
-	m, err := e.CreateVM(CreateVMParams{Name: "usb-test", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4, Username: "maco"})
+	m, err := e.CreateVM(CreateVMParams{Name: "usb-test", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,6 +153,39 @@ func TestUSBStaleSelectionAndStoppedVM(t *testing.T) {
 	params.Fingerprint = d.Fingerprint
 	if _, err := e.AttachUSB(context.Background(), id, params); err == nil {
 		t.Fatal("attached to stopped VM")
+	}
+}
+
+func TestUnassignUnpluggedDevice(t *testing.T) {
+	paths, err := config.Resolve(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := New(paths)
+	e.usbClaimsDir = filepath.Join(t.TempDir(), "usb")
+	e.usbDevices = func() ([]usb.Device, error) { return []usb.Device{}, nil }
+	m, err := e.CreateVM(CreateVMParams{Name: "usb-unplug", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(paths.VMRunDir(m.ID), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	m.USB = []types.VMUSBAssignment{{VendorID: 0x10c4, ProductID: 0xea60, Serial: "0001"}}
+	if err := e.vms.Save(m); err != nil {
+		t.Fatal(err)
+	}
+
+	key := AssignmentKey(m.USB[0])
+	if err := e.UnassignUSB(context.Background(), m.ID, key); err != nil {
+		t.Fatalf("unassign %q for an unplugged device: %v", key, err)
+	}
+	reloaded, err := e.vms.Load(m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reloaded.USB) != 0 {
+		t.Fatalf("assignment not removed: %+v", reloaded.USB)
 	}
 }
 
@@ -242,7 +275,7 @@ func gateTestEngine(t *testing.T) *Engine {
 func TestUSBBootGateDeniesMissingAndDoesNotStart(t *testing.T) {
 	e := gateTestEngine(t)
 	e.usbDevices = func() ([]usb.Device, error) { return []usb.Device{}, nil }
-	m, err := e.CreateVM(CreateVMParams{Name: "gate", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4, Username: "maco"})
+	m, err := e.CreateVM(CreateVMParams{Name: "gate", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +298,7 @@ func TestUSBBootGateDeniesClaimedDevice(t *testing.T) {
 	if _, err := e.AttachUSB(ctx, "usb-test", USBParams{DeviceID: d.ID, Fingerprint: d.Fingerprint}); err != nil {
 		t.Fatal(err)
 	}
-	other, err := e.CreateVM(CreateVMParams{Name: "gate-other", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4, Username: "maco"})
+	other, err := e.CreateVM(CreateVMParams{Name: "gate-other", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

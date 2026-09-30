@@ -46,5 +46,5 @@ func newRootCommand() *cobra.Command {
 
 func rootFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVarP(&cli.LogLevel, "log-level", "v", "info", "log level (debug, info, warn, error)")
-	cmd.PersistentFlags().StringVar(&cli.DataDir, "data-dir", "", "data directory (default $MACO_DATA_DIR or ~/Library/Application Support/maco)")
+	cmd.PersistentFlags().StringVar(&cli.DataDir, "data-dir", "", "data directory (default $MACO_DATA_DIR or /Library/Application Support/maco)")
 }

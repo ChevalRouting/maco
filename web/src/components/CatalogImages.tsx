@@ -58,10 +58,17 @@ function CatalogCard({ image, refresh }: { image: CatalogImage; refresh: () => v
         </Badge>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        {image.arch}
-        {image.downloaded ? ` · Cached file: ${formatSize(image.size_bytes)}` : ''}
-      </p>
+      <div className="flex flex-wrap items-center gap-2" aria-label="Image details">
+        <Badge variant="outline">{image.arch}</Badge>
+        {image.tags?.map((tag) => (
+          <Badge key={tag} variant="outline">{tag}</Badge>
+        ))}
+      </div>
+      {image.downloaded && (
+        <p className="text-sm text-muted-foreground">
+          Cached file: {formatSize(image.size_bytes)}
+        </p>
+      )}
 
       <JobNotice error={error || jobs.error} />
 

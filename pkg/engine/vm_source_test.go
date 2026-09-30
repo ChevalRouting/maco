@@ -14,18 +14,18 @@ func TestCreateVMExclusiveSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defaults := CreateVMParams{Name: "iso-vm", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 2, Username: "maco"}
+	defaults := CreateVMParams{Name: "iso-vm", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 2}
 	both := defaults
 	both.Image = "ubuntu-24.04-arm64"
 	both.ISOs = []string{iso.ID}
 	for _, params := range []CreateVMParams{defaults, both} {
-		if _, err := e.CreateVM(params); err == nil {
+		if _, err := e.CreateVM(params, nil); err == nil {
 			t.Fatal("accepted non-exclusive source")
 		}
 	}
 	defaults.ISOs = []string{iso.ID}
 	defaults.BootOrder = []string{"iso:" + iso.ID, "disk"}
-	m, err := e.CreateVM(defaults)
+	m, err := e.CreateVM(defaults, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,6 @@ func TestCreateVMExclusiveSource(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatal("ISO disk not created")
 	}
-	// A started VM can retain its disk even when its former source no longer exists.
 	stored.Image = "media:missing"
 	if again, err := e.prepareVMDisk(context.Background(), stored); err != nil || again != path {
 		t.Fatalf("existing disk lost: %s %v", again, err)

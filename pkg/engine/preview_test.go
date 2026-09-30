@@ -13,7 +13,7 @@ import (
 
 func TestInitialPreviewCapture(t *testing.T) {
 	e := testEngine(t)
-	m, err := e.CreateVM(CreateVMParams{Name: "preview", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4, Username: "maco"})
+	m, err := e.CreateVM(CreateVMParams{Name: "preview", Image: "ubuntu-24.04-arm64", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 4}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

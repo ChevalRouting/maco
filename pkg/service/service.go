@@ -177,7 +177,7 @@ func (m *Manager) Install(ctx context.Context) error {
 			return err
 		}
 
-		if err := reload(ctx, RedisLabel); err != nil {
+		if err := systemLaunchd.reload(ctx, RedisLabel); err != nil {
 			return err
 		}
 	}
@@ -191,7 +191,7 @@ func (m *Manager) Install(ctx context.Context) error {
 		return err
 	}
 
-	return reload(ctx, DaemonLabel)
+	return systemLaunchd.reload(ctx, DaemonLabel)
 }
 
 func (m *Manager) Uninstall(ctx context.Context) error {
@@ -200,7 +200,10 @@ func (m *Manager) Uninstall(ctx context.Context) error {
 	}
 
 	for _, label := range []string{DaemonLabel, RedisLabel} {
-		bootout(ctx, label)
+		if err := systemLaunchd.stop(ctx, label); err != nil {
+			return err
+		}
+
 		if err := os.Remove(plistPath(label)); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("remove %s: %w", plistPath(label), err)
 		}
@@ -227,19 +230,4 @@ func writePlist(label string, content []byte) error {
 	}
 
 	return nil
-}
-
-func reload(ctx context.Context, label string) error {
-	bootout(ctx, label)
-	cmd := exec.CommandContext(ctx, "launchctl", "bootstrap", "system", plistPath(label))
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("bootstrap %s: %w: %s", label, err, out)
-	}
-
-	return nil
-}
-
-func bootout(ctx context.Context, label string) {
-	cmd := exec.CommandContext(ctx, "launchctl", "bootout", "system/"+label)
-	_ = cmd.Run()
 }

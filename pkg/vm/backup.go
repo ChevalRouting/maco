@@ -52,9 +52,6 @@ func (d *Driver) BackupDisksContext(ctx context.Context, id string, backups []Ba
 		}}
 	}
 	froze, err := d.freezeGuest(id)
-	if err != nil {
-		return false, err
-	}
 	thawed := !froze
 	thaw := func() error {
 		if thawed {
@@ -72,6 +69,9 @@ func (d *Driver) BackupDisksContext(ctx context.Context, id string, backups []Ba
 			retErr = errors.Join(retErr, err)
 		}
 	}()
+	if err != nil {
+		return false, fmt.Errorf("freeze guest: %w", err)
+	}
 	attempted := false
 	defer func() {
 		if retErr != nil && attempted {

@@ -9,6 +9,9 @@ export default function Login() {
   const [params] = useSearchParams()
 
   async function submit(username: string, password: string) {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
     await login(username, password)
     navigate(safeReturnPath(params.get('returnTo')), { replace: true })
   }

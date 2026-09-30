@@ -15,9 +15,9 @@ import (
 var interfaceID = regexp.MustCompile(`^net([0-9]|[1-2][0-9]|3[0-1])$`)
 
 type InterfaceParams struct {
-	ID      string `json:"id" binding:"optional"`
-	Network string `json:"network" binding:"optional"`
-	MAC     string `json:"mac" binding:"optional"`
+	ID      string `json:"id" binding:"optional" extensions:"x-maco-description=VM interface ID such as net0. Discover existing IDs with getVM."`
+	Network string `json:"network" binding:"optional" extensions:"x-maco-description=Network ID from listNetworks or user for NAT."`
+	MAC     string `json:"mac" binding:"optional" extensions:"x-maco-description=Optional guest MAC address. Use suggestMAC for a generated suggestion or omit for a stable generated MAC."`
 }
 
 func exposeInterfaces(m *types.VMManifest) {
@@ -60,9 +60,7 @@ func (e *Engine) normalizedInterfaces(m *types.VMManifest) ([]types.VMInterface,
 		if nic.Network == "" {
 			nic.Network = "user"
 		}
-		switch nic.Network {
-		case "user", "vmnet-shared", "vmnet-host":
-		default:
+		if nic.Network != "user" {
 			n, err := e.nets.Resolve(nic.Network)
 			if err != nil {
 				return nil, err
@@ -76,9 +74,6 @@ func (e *Engine) normalizedInterfaces(m *types.VMManifest) ([]types.VMInterface,
 	return interfaces, nil
 }
 
-func (e *Engine) ManageInterface(ref, action string, p InterfaceParams) error {
-	return e.ManageInterfaceContext(context.Background(), ref, action, p)
-}
 func (e *Engine) ManageInterfaceContext(ctx context.Context, ref, action string, p InterfaceParams) error {
 	m, err := e.vms.Resolve(ref)
 	if err != nil {
@@ -202,8 +197,7 @@ func (e *Engine) ManageInterfaceContext(ctx context.Context, ref, action string,
 		if nic == nil {
 			continue
 		}
-		switch nic.Reference {
-		case "user", "vmnet-host", "vmnet-shared":
+		if nic.Reference == "user" {
 			continue
 		}
 		if _, err := e.nets.Resolve(nic.Reference); err != nil {
@@ -219,7 +213,7 @@ func (e *Engine) ManageInterfaceContext(ctx context.Context, ref, action string,
 func guestInterfacesConfig(interfaces []types.VMInterface) string {
 	config := "version: 2\nrenderer: networkd\nethernets:\n"
 	for _, nic := range interfaces {
-		part := guestNetworkConfig(nic.MAC, nic.Addresses)
+		part := guestNetworkConfig(nic.MAC, nic.Addresses, nic.Nameservers, nic.Gateway)
 		part = strings.TrimPrefix(part, "version: 2\nrenderer: networkd\nethernets:\n")
 		part = strings.Replace(part, "  lab:\n", "  "+nic.ID+":\n", 1)
 		part = strings.Replace(part, "set-name: lab0", "set-name: lab"+strings.TrimPrefix(nic.ID, "net"), 1)

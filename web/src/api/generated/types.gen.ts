@@ -23,6 +23,11 @@ export type ApiCreateMediaRequest = {
     size_gib: number;
 };
 
+export type ApiCreateSshKeyRequest = {
+    name: string;
+    public_key: string;
+};
+
 export type ApiCurrentUser = {
     role: string;
     username: string;
@@ -30,6 +35,10 @@ export type ApiCurrentUser = {
 
 export type ApiErrorResponse = {
     error: string;
+};
+
+export type ApiHostPowerRequest = {
+    force: boolean;
 };
 
 export type ApiLoginRequest = {
@@ -51,6 +60,21 @@ export type ApiPageEngineDiskView = {
 
 export type ApiStatusResponse = {
     status: string;
+};
+
+export type ApiTemplateRequest = {
+    /**
+     * Optional human description of the template.
+     */
+    description?: string;
+    /**
+     * Unique template name. Use an RFC 1123 hostname such as web-server.
+     */
+    name: string;
+    /**
+     * Machine profile: guest provisioning plus hardware defaults. Same shape as createVM without name. The spec name field is ignored.
+     */
+    spec: EngineCreateVmParams;
 };
 
 export type ApiGuestAgentResponse = {
@@ -83,36 +107,123 @@ export type EngineCatalogImage = {
     distro: string;
     downloaded: boolean;
     id: string;
+    provisioning: Array<TypesGuestCapability>;
     size_bytes: number;
+    tags: Array<string>;
     version: string;
 };
 
+export type EngineCreateDiskParams = {
+    /**
+     * Name for this additional disk.
+     */
+    name: string;
+    /**
+     * Disk capacity in GiB.
+     */
+    size_gib: number;
+};
+
 export type EngineCreateNetworkParams = {
+    /**
+     * Optional host IPv4 CIDR address for bridge mode. Does not configure DHCP or routing.
+     */
     address?: string;
+    /**
+     * Optional existing native bridge device to borrow. Applied device ownership remains server-managed.
+     */
     device?: string;
+    /**
+     * Existing host interfaces to join a native bridge.
+     */
     members?: Array<string>;
-    mode?: string;
-    name?: string;
+    /**
+     * Network backend. Omission defaults to bridge.
+     */
+    mode?: 'bridge' | 'switch' | 'bridged' | 'vmnet-bridged' | 'user' | 'vlan';
+    /**
+     * Network name. Reserved names user and vmnet-* cannot be used.
+     */
+    name: string;
+    /**
+     * Host parent interface for vlan mode.
+     */
     parent?: string;
+    /**
+     * VLAN ID from 1 to 4094 when mode is vlan. Omit in other modes.
+     */
     tag?: number;
+    /**
+     * Host interface name from listInterfaces. Required for vmnet-bridged or bridged.
+     */
     uplink?: string;
+    /**
+     * VLANs to create and join to a bridge using parent interface and tag.
+     */
     vlans?: Array<TypesVlan>;
 };
 
 export type EngineCreateVmParams = {
+    /**
+     * Static IPv4 or IPv6 CIDR addresses for the primary guest interface. Omission uses guest provisioning defaults.
+     */
     addresses?: Array<string>;
+    /**
+     * Whether host reconciliation should automatically start this VM. Default false.
+     */
     autostart?: boolean;
+    /**
+     * Ordered boot entries: disk or disk:<disk-id> or iso:<media-id>. Omission uses the server default order.
+     */
     boot_order?: Array<string>;
-    cpus?: number;
-    disk_size_gib?: number;
+    /**
+     * Virtual CPU count. At least 1.
+     */
+    cpus: number;
+    /**
+     * Primary disk capacity in GiB. At least 1.
+     */
+    disk_size_gib: number;
+    /**
+     * Additional named data disks with capacities in GiB.
+     */
+    disks?: Array<EngineCreateDiskParams>;
+    /**
+     * Optional primary-interface gateway IP address.
+     */
+    gateway?: string;
+    /**
+     * Guest provisioning configuration. Discover supported provisioners and modes from listCatalog.
+     */
+    guest_setup?: TypesGuestSetup;
+    /**
+     * Image key from listCatalog or disk image ID from listMedia. Supply this or exactly one installation ISO.
+     */
     image?: string;
+    /**
+     * Explicit interface list. Omit to use network; an empty list creates no interfaces. Maximum 32.
+     */
+    interfaces?: Array<EngineInterfaceParams>;
+    /**
+     * Exactly one media ID from listMedia for an ISO installation. Cannot be combined with image.
+     */
     isos?: Array<string>;
-    memory_mib?: number;
-    name?: string;
+    /**
+     * Guest memory in MiB. At least 64.
+     */
+    memory_mib: number;
+    /**
+     * Unique VM name. Use an RFC 1123 hostname such as agent-vm.
+     */
+    name: string;
+    /**
+     * DNS server IP addresses for guest provisioning.
+     */
+    nameservers?: Array<string>;
+    /**
+     * Default interface network ID from listNetworks or user for NAT. Omission uses user networking.
+     */
     network?: string;
-    password?: string;
-    ssh_key?: string;
-    username?: string;
 };
 
 export type EngineDiskParams = {
@@ -135,15 +246,50 @@ export type EngineDiskView = {
     vm_name: string;
 };
 
+export type EngineGuestSetupParams = {
+    addresses?: Array<string>;
+    files?: Array<TypesGuestFile>;
+    gateway?: string;
+    hostname?: string;
+    mode?: string;
+    nameservers?: Array<string>;
+    provisioner?: string;
+};
+
+export type EngineGuestSetupView = {
+    addresses: Array<string>;
+    files: Array<TypesGuestFile>;
+    gateway: string;
+    hostname: string;
+    mode: string;
+    nameservers: Array<string>;
+    provisioner: string;
+    provisioning: Array<TypesGuestCapability>;
+};
+
 export type EngineHostInfo = {
     cpus: number;
     memory_bytes: number;
 };
 
 export type EngineInterfaceParams = {
+    /**
+     * VM interface ID such as net0. Discover existing IDs with getVM.
+     */
     id?: string;
+    /**
+     * Optional guest MAC address. Use suggestMAC for a generated suggestion or omit for a stable generated MAC.
+     */
     mac?: string;
+    /**
+     * Network ID from listNetworks or user for NAT.
+     */
     network?: string;
+};
+
+export type EngineMacSuggestion = {
+    mac: string;
+    oui: string;
 };
 
 export type EngineMedia = {
@@ -160,9 +306,21 @@ export type EngineMediaSettings = {
 };
 
 export type EngineScheduleParams = {
+    /**
+     * Enable automatic backups for this VM.
+     */
     enabled?: boolean;
+    /**
+     * Hours between backups. Must be at least 1 when enabled.
+     */
     interval_hours?: number;
+    /**
+     * Number of newest backups retained. Zero disables this retention limit.
+     */
     keep_last?: number;
+    /**
+     * Maximum backup age in days. Zero disables this retention limit.
+     */
     max_age_days?: number;
 };
 
@@ -178,6 +336,36 @@ export type EngineStorageStats = {
     path: string;
     total_bytes: number;
     used_bytes: number;
+};
+
+export type EngineTemplate = {
+    description: string;
+    id: string;
+    name: string;
+    spec: EngineCreateVmParams;
+};
+
+export type EngineTemplateInstanceParams = {
+    /**
+     * Optional autostart override. Omit to use the template value.
+     */
+    autostart?: boolean;
+    /**
+     * Optional vCPU override. Omit to use the template value.
+     */
+    cpus?: number;
+    /**
+     * Optional boot disk override in GiB. Omit to use the template value.
+     */
+    disk_size_gib?: number;
+    /**
+     * Optional memory override in MiB. Omit to use the template value.
+     */
+    memory_mib?: number;
+    /**
+     * Unique VM name. Use an RFC 1123 hostname such as agent-vm.
+     */
+    name: string;
 };
 
 export type EngineUsbAttachment = {
@@ -204,9 +392,21 @@ export type EngineUsbParams = {
 };
 
 export type EngineUpdateHardwareParams = {
+    /**
+     * Whether host reconciliation starts this VM automatically. Omit to preserve.
+     */
     autostart?: boolean;
+    /**
+     * New CPU count. VM must be stopped. Omit to preserve current setting.
+     */
     cpus?: number;
+    /**
+     * New primary disk capacity in GiB. Shrinking is not supported.
+     */
     disk_size_gib?: number;
+    /**
+     * New memory in MiB. VM must be stopped. Omit to preserve current setting.
+     */
     memory_mib?: number;
 };
 
@@ -217,7 +417,7 @@ export type EngineVmView = {
     pid: number;
 };
 
-export type HostnetPort = {
+export type HostPort = {
     addresses: Array<string>;
     device: string;
     hardware_port: string;
@@ -267,6 +467,27 @@ export type TypesBackupSchedule = {
     vm_id: string;
 };
 
+export type TypesGuestCapability = {
+    provisioner: string;
+    raw: boolean;
+};
+
+export type TypesGuestFile = {
+    content?: string;
+    name: string;
+};
+
+/**
+ * Guest provisioning configuration. Discover supported provisioners and modes from listCatalog before creating a VM.
+ */
+export type TypesGuestSetup = {
+    files?: Array<TypesGuestFile>;
+    hostname?: string;
+    mode?: string;
+    provisioner?: string;
+    raw?: string;
+};
+
 export type TypesNetworkManifest = {
     address?: string;
     applied_address?: string;
@@ -285,7 +506,15 @@ export type TypesNetworkManifest = {
     vlans?: Array<TypesVlan>;
 };
 
-export type TypesNetworkMode = 'user' | 'vmnet-bridged' | 'bridge' | 'switch' | 'bridged' | 'vlan' | 'bridge' | 'switch' | 'bridged' | 'vmnet-bridged' | 'user' | 'vlan';
+export type TypesNetworkMode = 'user' | 'vmnet-bridged' | 'bridge' | 'switch' | 'bridged' | 'vlan';
+
+export type TypesSshKey = {
+    created_at: number;
+    id: string;
+    name: string;
+    public_key: string;
+    user_id: string;
+};
 
 export type TypesVlan = {
     borrowed?: boolean;
@@ -302,8 +531,10 @@ export type TypesVmDisk = {
 
 export type TypesVmInterface = {
     addresses?: Array<string>;
+    gateway?: string;
     id: string;
     mac?: string;
+    nameservers?: Array<string>;
     network: string;
 };
 
@@ -314,16 +545,18 @@ export type TypesVmManifest = {
     cpus: number;
     disk_size_gib: number;
     disks?: Array<TypesVmDisk>;
+    gateway?: string;
+    guest_setup?: TypesGuestSetup;
     id: string;
     image: string;
     interfaces?: Array<TypesVmInterface>;
     isos?: Array<string>;
     memory_mib: number;
     name: string;
+    nameservers?: Array<string>;
     network?: string;
-    ssh_key?: string;
+    ssh_keys?: Array<string>;
     usb?: Array<TypesVmusbAssignment>;
-    username: string;
 };
 
 export type TypesVmusbAssignment = {
@@ -593,6 +826,78 @@ export type HostConsoleData = {
     url: '/api/host/console';
 };
 
+export type PowerOffHostData = {
+    /**
+     * Request
+     */
+    body: ApiHostPowerRequest;
+    path?: never;
+    query?: never;
+    url: '/api/host/poweroff';
+};
+
+export type PowerOffHostErrors = {
+    /**
+     * Bad Request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Service Unavailable
+     */
+    503: ApiErrorResponse;
+};
+
+export type PowerOffHostError = PowerOffHostErrors[keyof PowerOffHostErrors];
+
+export type PowerOffHostResponses = {
+    /**
+     * Accepted
+     */
+    202: JobsJob;
+};
+
+export type PowerOffHostResponse = PowerOffHostResponses[keyof PowerOffHostResponses];
+
+export type RebootHostData = {
+    /**
+     * Request
+     */
+    body: ApiHostPowerRequest;
+    path?: never;
+    query?: never;
+    url: '/api/host/reboot';
+};
+
+export type RebootHostErrors = {
+    /**
+     * Bad Request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Service Unavailable
+     */
+    503: ApiErrorResponse;
+};
+
+export type RebootHostError = RebootHostErrors[keyof RebootHostErrors];
+
+export type RebootHostResponses = {
+    /**
+     * Accepted
+     */
+    202: JobsJob;
+};
+
+export type RebootHostResponse = RebootHostResponses[keyof RebootHostResponses];
+
 export type ListImagesData = {
     body?: never;
     path?: never;
@@ -646,10 +951,35 @@ export type ListInterfacesResponses = {
     /**
      * OK
      */
-    200: Array<HostnetPort>;
+    200: Array<HostPort>;
 };
 
 export type ListInterfacesResponse = ListInterfacesResponses[keyof ListInterfacesResponses];
+
+export type SuggestMacData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/interfaces/mac';
+};
+
+export type SuggestMacErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+};
+
+export type SuggestMacError = SuggestMacErrors[keyof SuggestMacErrors];
+
+export type SuggestMacResponses = {
+    /**
+     * OK
+     */
+    200: EngineMacSuggestion;
+};
+
+export type SuggestMacResponse = SuggestMacResponses[keyof SuggestMacResponses];
 
 export type ListJobsData = {
     body?: never;
@@ -746,13 +1076,49 @@ export type GetJobResponses = {
 
 export type GetJobResponse = GetJobResponses[keyof GetJobResponses];
 
+export type WaitJobData = {
+    body?: never;
+    path: {
+        /**
+         * id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/jobs/{id}/wait';
+};
+
+export type WaitJobErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Not Found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Service Unavailable
+     */
+    503: ApiErrorResponse;
+};
+
+export type WaitJobError = WaitJobErrors[keyof WaitJobErrors];
+
+export type WaitJobResponses = {
+    /**
+     * OK
+     */
+    200: JobsJob;
+};
+
+export type WaitJobResponse = WaitJobResponses[keyof WaitJobResponses];
+
 export type HandleLoginData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | ApiLoginRequest;
+    body: ApiLoginRequest;
     path?: never;
     query?: never;
     url: '/api/login';
@@ -842,9 +1208,7 @@ export type CreateApiKeyData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | ApiCreateApiKeyRequest;
+    body: ApiCreateApiKeyRequest;
     path?: never;
     query?: never;
     url: '/api/me/api-keys';
@@ -918,9 +1282,7 @@ export type ChangePasswordData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | ApiChangePasswordRequest;
+    body: ApiChangePasswordRequest;
     path?: never;
     query?: never;
     url: '/api/me/password';
@@ -951,6 +1313,109 @@ export type ChangePasswordResponses = {
 };
 
 export type ChangePasswordResponse = ChangePasswordResponses[keyof ChangePasswordResponses];
+
+export type ListSshKeysData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/ssh-keys';
+};
+
+export type ListSshKeysErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ApiErrorResponse;
+};
+
+export type ListSshKeysError = ListSshKeysErrors[keyof ListSshKeysErrors];
+
+export type ListSshKeysResponses = {
+    /**
+     * OK
+     */
+    200: Array<TypesSshKey>;
+};
+
+export type ListSshKeysResponse = ListSshKeysResponses[keyof ListSshKeysResponses];
+
+export type AddSshKeyData = {
+    /**
+     * Request
+     */
+    body: ApiCreateSshKeyRequest;
+    path?: never;
+    query?: never;
+    url: '/api/me/ssh-keys';
+};
+
+export type AddSshKeyErrors = {
+    /**
+     * Bad Request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ApiErrorResponse;
+};
+
+export type AddSshKeyError = AddSshKeyErrors[keyof AddSshKeyErrors];
+
+export type AddSshKeyResponses = {
+    /**
+     * Created
+     */
+    201: TypesSshKey;
+};
+
+export type AddSshKeyResponse = AddSshKeyResponses[keyof AddSshKeyResponses];
+
+export type DeleteSshKeyData = {
+    body?: never;
+    path: {
+        /**
+         * SSH key id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/me/ssh-keys/{id}';
+};
+
+export type DeleteSshKeyErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Not Found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ApiErrorResponse;
+};
+
+export type DeleteSshKeyError = DeleteSshKeyErrors[keyof DeleteSshKeyErrors];
+
+export type DeleteSshKeyResponses = {
+    /**
+     * OK
+     */
+    200: ApiStatusResponse;
+};
+
+export type DeleteSshKeyResponse = DeleteSshKeyResponses[keyof DeleteSshKeyResponses];
 
 export type ListMediaData = {
     body?: never;
@@ -985,9 +1450,7 @@ export type CreateMediaData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | ApiCreateMediaRequest;
+    body: ApiCreateMediaRequest;
     path?: never;
     query?: never;
     url: '/api/media';
@@ -1020,6 +1483,9 @@ export type UploadImageData = {
      * Disk image (.qcow2 or .img), maximum 64 GiB
      */
     body: {
+        /**
+         * Disk image (.qcow2 or .img), maximum 64 GiB
+         */
         file: Blob | File;
     };
     path?: never;
@@ -1066,6 +1532,9 @@ export type UploadIsoData = {
      * ISO file, maximum 10 GiB
      */
     body: {
+        /**
+         * ISO file, maximum 10 GiB
+         */
         file: Blob | File;
     };
     path?: never;
@@ -1174,9 +1643,7 @@ export type CreateNetworkData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineCreateNetworkParams;
+    body: EngineCreateNetworkParams;
     path?: never;
     query?: never;
     url: '/api/networks';
@@ -1246,9 +1713,7 @@ export type UpdateNetworkData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineCreateNetworkParams;
+    body: EngineCreateNetworkParams;
     path: {
         /**
          * id
@@ -1319,6 +1784,221 @@ export type ApplyNetworkResponses = {
 
 export type ApplyNetworkResponse = ApplyNetworkResponses[keyof ApplyNetworkResponses];
 
+export type ListTemplatesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/templates';
+};
+
+export type ListTemplatesErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: ApiErrorResponse;
+};
+
+export type ListTemplatesError = ListTemplatesErrors[keyof ListTemplatesErrors];
+
+export type ListTemplatesResponses = {
+    /**
+     * OK
+     */
+    200: Array<EngineTemplate>;
+};
+
+export type ListTemplatesResponse = ListTemplatesResponses[keyof ListTemplatesResponses];
+
+export type CreateTemplateData = {
+    /**
+     * Request
+     */
+    body: ApiTemplateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/templates';
+};
+
+export type CreateTemplateErrors = {
+    /**
+     * Bad Request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+};
+
+export type CreateTemplateError = CreateTemplateErrors[keyof CreateTemplateErrors];
+
+export type CreateTemplateResponses = {
+    /**
+     * Created
+     */
+    201: EngineTemplate;
+};
+
+export type CreateTemplateResponse = CreateTemplateResponses[keyof CreateTemplateResponses];
+
+export type DeleteTemplateData = {
+    body?: never;
+    path: {
+        /**
+         * id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/templates/{id}';
+};
+
+export type DeleteTemplateErrors = {
+    /**
+     * Bad Request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+};
+
+export type DeleteTemplateError = DeleteTemplateErrors[keyof DeleteTemplateErrors];
+
+export type DeleteTemplateResponses = {
+    /**
+     * No content
+     */
+    204: void;
+};
+
+export type DeleteTemplateResponse = DeleteTemplateResponses[keyof DeleteTemplateResponses];
+
+export type GetTemplateData = {
+    body?: never;
+    path: {
+        /**
+         * id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/templates/{id}';
+};
+
+export type GetTemplateErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Not Found
+     */
+    404: ApiErrorResponse;
+};
+
+export type GetTemplateError = GetTemplateErrors[keyof GetTemplateErrors];
+
+export type GetTemplateResponses = {
+    /**
+     * OK
+     */
+    200: EngineTemplate;
+};
+
+export type GetTemplateResponse = GetTemplateResponses[keyof GetTemplateResponses];
+
+export type UpdateTemplateData = {
+    /**
+     * Request
+     */
+    body: ApiTemplateRequest;
+    path: {
+        /**
+         * id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/templates/{id}';
+};
+
+export type UpdateTemplateErrors = {
+    /**
+     * Bad Request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Not Found
+     */
+    404: ApiErrorResponse;
+};
+
+export type UpdateTemplateError = UpdateTemplateErrors[keyof UpdateTemplateErrors];
+
+export type UpdateTemplateResponses = {
+    /**
+     * OK
+     */
+    200: EngineTemplate;
+};
+
+export type UpdateTemplateResponse = UpdateTemplateResponses[keyof UpdateTemplateResponses];
+
+export type InstantiateTemplateData = {
+    /**
+     * Request
+     */
+    body: EngineTemplateInstanceParams;
+    path: {
+        /**
+         * id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/templates/{id}/instantiate';
+};
+
+export type InstantiateTemplateErrors = {
+    /**
+     * Bad Request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Not Found
+     */
+    404: ApiErrorResponse;
+    /**
+     * Service Unavailable
+     */
+    503: ApiErrorResponse;
+};
+
+export type InstantiateTemplateError = InstantiateTemplateErrors[keyof InstantiateTemplateErrors];
+
+export type InstantiateTemplateResponses = {
+    /**
+     * Accepted
+     */
+    202: JobsJob;
+};
+
+export type InstantiateTemplateResponse = InstantiateTemplateResponses[keyof InstantiateTemplateResponses];
+
 export type ListUsbDevicesData = {
     body?: never;
     path?: never;
@@ -1381,9 +2061,7 @@ export type CreateVmData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineCreateVmParams;
+    body: EngineCreateVmParams;
     path?: never;
     query?: never;
     url: '/api/vms';
@@ -1593,9 +2271,7 @@ export type SetBackupScheduleData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineScheduleParams;
+    body: EngineScheduleParams;
     path: {
         /**
          * id
@@ -1674,9 +2350,7 @@ export type RestoreBackupData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | ApiRestoreRequest;
+    body: ApiRestoreRequest;
     path: {
         /**
          * id
@@ -1733,9 +2407,7 @@ export type AddDiskData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineDiskParams;
+    body: EngineDiskParams;
     path: {
         /**
          * id
@@ -1814,9 +2486,7 @@ export type GrowDiskData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineDiskParams;
+    body: EngineDiskParams;
     path: {
         /**
          * id
@@ -1907,13 +2577,86 @@ export type VmGuestAgentResponses = {
 
 export type VmGuestAgentResponse = VmGuestAgentResponses[keyof VmGuestAgentResponses];
 
+export type GetGuestSetupData = {
+    body?: never;
+    path: {
+        /**
+         * id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/vms/{id}/guest-setup';
+};
+
+export type GetGuestSetupErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Not Found
+     */
+    404: ApiErrorResponse;
+};
+
+export type GetGuestSetupError = GetGuestSetupErrors[keyof GetGuestSetupErrors];
+
+export type GetGuestSetupResponses = {
+    /**
+     * OK
+     */
+    200: EngineGuestSetupView;
+};
+
+export type GetGuestSetupResponse = GetGuestSetupResponses[keyof GetGuestSetupResponses];
+
+export type UpdateGuestSetupData = {
+    /**
+     * Request
+     */
+    body: EngineGuestSetupParams;
+    path: {
+        /**
+         * id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/vms/{id}/guest-setup';
+};
+
+export type UpdateGuestSetupErrors = {
+    /**
+     * Bad Request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Service Unavailable
+     */
+    503: ApiErrorResponse;
+};
+
+export type UpdateGuestSetupError = UpdateGuestSetupErrors[keyof UpdateGuestSetupErrors];
+
+export type UpdateGuestSetupResponses = {
+    /**
+     * Accepted
+     */
+    202: JobsJob;
+};
+
+export type UpdateGuestSetupResponse = UpdateGuestSetupResponses[keyof UpdateGuestSetupResponses];
+
 export type UpdateHardwareData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineUpdateHardwareParams;
+    body: EngineUpdateHardwareParams;
     path: {
         /**
          * id
@@ -1954,9 +2697,7 @@ export type AddVmInterfaceData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineInterfaceParams;
+    body: EngineInterfaceParams;
     path: {
         /**
          * id
@@ -2035,9 +2776,7 @@ export type UpdateVmInterfaceData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineInterfaceParams;
+    body: EngineInterfaceParams;
     path: {
         /**
          * id
@@ -2082,9 +2821,7 @@ export type UpdateMediaData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineMediaSettings;
+    body: EngineMediaSettings;
     path: {
         /**
          * id
@@ -2152,6 +2889,40 @@ export type PreviewVmResponses = {
      */
     200: unknown;
 };
+
+export type RebootVmData = {
+    body?: never;
+    path: {
+        /**
+         * id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/vms/{id}/reboot';
+};
+
+export type RebootVmErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Service Unavailable
+     */
+    503: ApiErrorResponse;
+};
+
+export type RebootVmError = RebootVmErrors[keyof RebootVmErrors];
+
+export type RebootVmResponses = {
+    /**
+     * Accepted
+     */
+    202: JobsJob;
+};
+
+export type RebootVmResponse = RebootVmResponses[keyof RebootVmResponses];
 
 export type ShutdownVmData = {
     body?: never;
@@ -2225,9 +2996,7 @@ export type CreateSnapshotData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineSnapshotParams;
+    body: EngineSnapshotParams;
     path: {
         /**
          * id
@@ -2446,9 +3215,7 @@ export type AttachUsbData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineUsbParams;
+    body: EngineUsbParams;
     path: {
         /**
          * id
@@ -2497,9 +3264,7 @@ export type AssignUsbData = {
     /**
      * Request
      */
-    body: {
-        [key: string]: unknown;
-    } | EngineUsbParams;
+    body: EngineUsbParams;
     path: {
         /**
          * id

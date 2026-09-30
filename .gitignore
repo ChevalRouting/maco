@@ -1,6 +1,6 @@
 /maco
 /maco-net-helper
-/pkg/nethelper/assets/maco-net-helper
+/pkg/net/helper/assets/maco-net-helper
 /build/
 /maco-*.pkg
 /pkg/api/dist/
@@ -11,5 +11,10 @@
 *.db-shm
 /tools/l2-validation/
 /tests/api/
-/docs/internal/wip/
+/docs/internal/
 .DS_Store
+
+/maco-mcp
+/maco-mcp.yml
+
+/.task/

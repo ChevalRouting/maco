@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"os/exec"
@@ -16,12 +17,10 @@ const (
 	NetworkBridge       NetworkMode = "bridge"
 	NetworkSwitch       NetworkMode = "switch"
 	NetworkVmnetBridged NetworkMode = "vmnet-bridged"
-	NetworkVmnetHost    NetworkMode = "vmnet-host"
-	NetworkVmnetShared  NetworkMode = "vmnet-shared"
 )
 
 func (m NetworkMode) NeedsRoot() bool {
-	return m == NetworkVmnetBridged || m == NetworkVmnetHost || m == NetworkVmnetShared
+	return m == NetworkVmnetBridged
 }
 
 type DiskSpec struct {
@@ -41,17 +40,18 @@ type InterfaceSpec struct {
 }
 
 type Spec struct {
-	Interfaces []InterfaceSpec
-	ISOs       []DiskSpec
-	BootOrder  []string
-	Disks      []DiskSpec
-	ID         string
-	Name       string
-	CPUs       int
-	MemoryMiB  int
-	DiskPath   string
-	SeedPath   string
-	Firmware   string
+	Interfaces   []InterfaceSpec
+	ISOs         []DiskSpec
+	BootOrder    []string
+	Disks        []DiskSpec
+	ID           string
+	Name         string
+	CPUs         int
+	MemoryMiB    int
+	DiskPath     string
+	SeedPath     string
+	IgnitionPath string
+	Firmware     string
 }
 
 const QEMUBinary = "qemu-system-aarch64"
@@ -92,15 +92,21 @@ func (s *Spec) buildArgs(runDir string) ([]string, error) {
 		"-smp", strconv.Itoa(cpus),
 		"-m", strconv.Itoa(mem),
 		"-drive", "if=pflash,format=raw,readonly=on,file=" + s.Firmware,
+		"-device", "virtio-scsi-pci,id=scsi",
 		"-drive", "if=none,id=bootdisk,format=qcow2,file=" + s.DiskPath,
-		"-device", "virtio-blk-pci,drive=bootdisk" + s.bootIndex("disk"),
+		"-device", "scsi-hd,bus=scsi.0,drive=bootdisk" + s.bootIndex("disk"),
 	}
 
 	if s.SeedPath != "" {
-		args = append(args, "-drive", "if=virtio,format=raw,file="+s.SeedPath)
+		args = append(args,
+			"-drive", "if=none,id=seed,format=raw,file="+s.SeedPath,
+			"-device", "scsi-hd,bus=scsi.0,drive=seed",
+		)
 	}
 
-	args = append(args, "-device", "virtio-scsi-pci,id=scsi")
+	if s.IgnitionPath != "" {
+		args = append(args, "-fw_cfg", "name=opt/org.flatcar-linux/config,file="+s.IgnitionPath)
+	}
 
 	for _, iso := range s.ISOs {
 		node := diskNodeName(iso.ID)
@@ -148,9 +154,53 @@ func (s *Spec) buildArgs(runDir string) ([]string, error) {
 	return args, nil
 }
 
+const DefaultMACPrefix = "02:00:00"
+
+var macPrefix = DefaultMACPrefix
+
+func SetMACPrefix(base string) error {
+	normalized, err := NormalizeMACPrefix(base)
+	if err != nil {
+		return err
+	}
+	macPrefix = normalized
+	return nil
+}
+
+func NormalizeMACPrefix(base string) (string, error) {
+	base = strings.TrimSpace(strings.ToLower(base))
+	if base == "" {
+		return DefaultMACPrefix, nil
+	}
+	parts := strings.Split(base, ":")
+	if len(parts) < 3 {
+		return "", fmt.Errorf("base MAC %q needs at least three octets", base)
+	}
+	octets := [3]byte{}
+	for i := 0; i < 3; i++ {
+		v, err := strconv.ParseUint(parts[i], 16, 8)
+		if err != nil {
+			return "", fmt.Errorf("base MAC %q has an invalid octet %q", base, parts[i])
+		}
+		octets[i] = byte(v)
+	}
+	if octets[0]&1 != 0 {
+		return "", fmt.Errorf("base MAC %q must be unicast (an even first octet)", base)
+	}
+	return fmt.Sprintf("%02x:%02x:%02x", octets[0], octets[1], octets[2]), nil
+}
+
 func MAC(id string) string {
 	sum := sha256.Sum256([]byte(id))
-	return fmt.Sprintf("02:%02x:%02x:%02x:%02x:%02x", sum[0], sum[1], sum[2], sum[3], sum[4])
+	return fmt.Sprintf("%s:%02x:%02x:%02x", macPrefix, sum[0], sum[1], sum[2])
+}
+
+func MACPrefix() string { return macPrefix }
+
+func RandomMAC() string {
+	var b [3]byte
+	_, _ = rand.Read(b[:])
+	return fmt.Sprintf("%s:%02x:%02x:%02x", macPrefix, b[0], b[1], b[2])
 }
 
 func (s *Spec) bootIndex(id string) string {
@@ -196,16 +246,6 @@ func networkArgs(nic InterfaceSpec) ([]string, error) {
 
 		args = append(args,
 			"-netdev", "socket,id=net0,mcast="+nic.Group,
-			"-device", "virtio-net-pci,netdev=net0",
-		)
-	case NetworkVmnetHost:
-		args = append(args,
-			"-netdev", "vmnet-host,id=net0",
-			"-device", "virtio-net-pci,netdev=net0",
-		)
-	case NetworkVmnetShared:
-		args = append(args,
-			"-netdev", "vmnet-shared,id=net0",
 			"-device", "virtio-net-pci,netdev=net0",
 		)
 	case NetworkVmnetBridged:

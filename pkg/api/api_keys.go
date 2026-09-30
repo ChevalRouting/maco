@@ -23,6 +23,8 @@ type StatusResponse struct {
 
 // @Summary listAPIKeys
 // @ID listAPIKeys
+// @Description List the current account API keys and their metadata. Existing secret token values are not returned.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags api-keys
 // @Security BearerAuth
 // @Produce json
@@ -48,6 +50,8 @@ func (s *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
 
 // @Summary createAPIKey
 // @ID createAPIKey
+// @Description Create an API key for the current account. The returned token is shown once and is a secret. Store it securely; the key inherits current account permissions.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json"}
 // @Tags api-keys
 // @Security BearerAuth
 // @Accept json
@@ -87,6 +91,8 @@ func (s *Server) createAPIKey(w http.ResponseWriter, r *http.Request) {
 
 // @Summary revokeAPIKey
 // @ID revokeAPIKey
+// @Description Revoke a current-account API key by ID from listAPIKeys. Revoking the key used by this MCP connection will prevent further authenticated requests.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json"}
 // @Tags api-keys
 // @Security BearerAuth
 // @Produce json

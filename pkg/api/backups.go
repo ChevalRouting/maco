@@ -10,6 +10,8 @@ import (
 
 // @Summary listBackups
 // @ID listBackups
+// @Description List backups for a VM ID from listVMs. Use a returned timestamp unchanged with restoreBackup or deleteBackup.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -30,6 +32,8 @@ func (s *Server) listBackups(w http.ResponseWriter, r *http.Request) {
 
 // @Summary createBackup
 // @ID createBackup
+// @Description Create a backup of the selected VM. This queues a backup job; wait for success before treating the backup as usable, then inspect listBackups. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -48,6 +52,8 @@ type restoreRequest struct {
 
 // @Summary restoreBackup
 // @ID restoreBackup
+// @Description Restore the backup identified by VM id and timestamp from listBackups. Set body.as_new=true to restore as a new VM. False restores in place and can replace current VM data. Example body: {"as_new":true}. Wait for the restore job before using the VM. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Accept json
@@ -78,6 +84,8 @@ func (s *Server) restoreBackup(w http.ResponseWriter, r *http.Request) {
 
 // @Summary getBackupSchedule
 // @ID getBackupSchedule
+// @Description Read the backup schedule and retention settings for a VM. Use the returned values to prepare a schedule update.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -98,6 +106,8 @@ func (s *Server) getBackupSchedule(w http.ResponseWriter, r *http.Request) {
 
 // @Summary setBackupSchedule
 // @ID setBackupSchedule
+// @Description Set backup scheduling and retention for a VM. interval_hours is in hours, keep_last counts retained backups, and max_age_days is in days. Retention can delete old backups; review existing settings first. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json"}
 // @Tags vms
 // @Security BearerAuth
 // @Accept json
@@ -127,6 +137,8 @@ func (s *Server) setBackupSchedule(w http.ResponseWriter, r *http.Request) {
 
 // @Summary deleteBackup
 // @ID deleteBackup
+// @Description Permanently delete the backup selected by VM id and timestamp from listBackups. This does not delete the VM itself. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json

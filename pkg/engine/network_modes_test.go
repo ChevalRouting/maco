@@ -2,7 +2,7 @@ package engine
 
 import (
 	"errors"
-	"github.com/m-vinc/maco/pkg/network"
+	"github.com/m-vinc/maco/pkg/net/vnet"
 	"github.com/m-vinc/maco/pkg/types"
 	"github.com/m-vinc/maco/pkg/vm"
 	"testing"
@@ -10,7 +10,7 @@ import (
 
 func TestCreateNetworkModes(t *testing.T) {
 	e := testEngine(t)
-	e.ensureNetwork = func(_ *network.Store, _ *types.NetworkManifest, _ bool) error { return nil }
+	e.ensureNetwork = func(_ *vnet.Store, _ *types.NetworkManifest, _ bool) error { return nil }
 	for _, tc := range []struct {
 		params CreateNetworkParams
 		want   vm.NetworkMode
@@ -58,7 +58,7 @@ func TestCreateNetworkAppliesAndRollsBack(t *testing.T) {
 	e := testEngine(t)
 	failure := errors.New("apply failed")
 	called := false
-	e.ensureNetwork = func(store *network.Store, n *types.NetworkManifest, dryRun bool) error {
+	e.ensureNetwork = func(store *vnet.Store, n *types.NetworkManifest, dryRun bool) error {
 		called = true
 		if dryRun {
 			t.Fatal("creation must apply")
@@ -74,15 +74,14 @@ func TestCreateNetworkAppliesAndRollsBack(t *testing.T) {
 	if !called {
 		t.Fatal("apply never ran")
 	}
-	if _, err := e.nets.Resolve("broken"); !errors.Is(err, network.ErrNotFound) {
+	if _, err := e.nets.Resolve("broken"); !errors.Is(err, vnet.ErrNotFound) {
 		t.Fatalf("failed manifest retained: %v", err)
 	}
-	// A real failed preflight leaves no manifest and does not modify interfaces.
-	e.ensureNetwork = network.Ensure
+	e.ensureNetwork = vnet.Ensure
 	if _, err := e.CreateNetwork(CreateNetworkParams{Name: "missing", VLANs: []types.VLAN{{Parent: "missing999", Tag: 123}}}); err == nil {
 		t.Fatal("missing parent succeeded")
 	}
-	if _, err := e.nets.Resolve("missing"); !errors.Is(err, network.ErrNotFound) {
+	if _, err := e.nets.Resolve("missing"); !errors.Is(err, vnet.ErrNotFound) {
 		t.Fatalf("failed manifest retained: %v", err)
 	}
 }

@@ -3,6 +3,7 @@ import { PageHeader, PreferencesGroup, EntryRow, Button, NoticeBanner } from 'ch
 import { changePassword, errorMessage } from '../api'
 import { useSession } from '../hooks/useSession'
 import { JobNotice } from '../components/JobNotice'
+import { SSHKeys } from '../components/SSHKeys'
 
 export default function Profile() {
   const session = useSession()
@@ -96,6 +97,8 @@ export default function Profile() {
           {busy ? 'Updating…' : 'Update Password'}
         </Button>
       </form>
+
+      <SSHKeys />
     </div>
   )
 }

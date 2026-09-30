@@ -8,21 +8,21 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/m-vinc/maco/pkg/network"
+	"github.com/m-vinc/maco/pkg/net/vnet"
 	"github.com/m-vinc/maco/pkg/types"
 	"github.com/m-vinc/maco/pkg/vm"
 )
 
 type CreateNetworkParams struct {
-	Name    string       `json:"name" binding:"optional"`
-	Mode    string       `json:"mode" binding:"optional"`
-	Uplink  string       `json:"uplink" binding:"optional"`
-	Parent  string       `json:"parent" binding:"optional"`
-	Tag     int          `json:"tag" binding:"optional"`
-	Address string       `json:"address" binding:"optional"`
-	Device  string       `json:"device" binding:"optional"`
-	Members []string     `json:"members" binding:"optional"`
-	VLANs   []types.VLAN `json:"vlans" binding:"optional"`
+	Name    string       `json:"name" extensions:"x-maco-description=Network name. Reserved names user and vmnet-* cannot be used." minLength:"1"`
+	Mode    string       `json:"mode" binding:"optional" extensions:"x-maco-description=Network backend. Omission defaults to bridge." enums:"bridge,switch,bridged,vmnet-bridged,user,vlan"`
+	Uplink  string       `json:"uplink" binding:"optional" extensions:"x-maco-description=Host interface name from listInterfaces. Required for vmnet-bridged or bridged."`
+	Parent  string       `json:"parent" binding:"optional" extensions:"x-maco-description=Host parent interface for vlan mode."`
+	Tag     int          `json:"tag" binding:"optional" extensions:"x-maco-description=VLAN ID from 1 to 4094 when mode is vlan. Omit in other modes." minimum:"0" maximum:"4094"`
+	Address string       `json:"address" binding:"optional" extensions:"x-maco-description=Optional host IPv4 CIDR address for bridge mode. Does not configure DHCP or routing."`
+	Device  string       `json:"device" binding:"optional" extensions:"x-maco-description=Optional existing native bridge device to borrow. Applied device ownership remains server-managed."`
+	Members []string     `json:"members" binding:"optional" extensions:"x-maco-description=Existing host interfaces to join a native bridge."`
+	VLANs   []types.VLAN `json:"vlans" binding:"optional" extensions:"x-maco-description=VLANs to create and join to a bridge using parent interface and tag."`
 }
 
 func mcastGroup(id string) string {
@@ -88,7 +88,7 @@ func (e *Engine) CreateNetwork(params CreateNetworkParams) (*types.NetworkManife
 		if loadErr != nil {
 			return nil, fmt.Errorf("apply network: %w (reload for rollback: %v)", err, loadErr)
 		}
-		if cleanupErr := network.Destroy(current); cleanupErr != nil {
+		if cleanupErr := vnet.Destroy(current); cleanupErr != nil {
 			return nil, fmt.Errorf("apply network: %w (rollback failed; retained manifest %s: %v)", err, n.ID, cleanupErr)
 		}
 		if cleanupErr := e.nets.Delete(n.ID); cleanupErr != nil {
@@ -100,7 +100,7 @@ func (e *Engine) CreateNetwork(params CreateNetworkParams) (*types.NetworkManife
 }
 
 func (e *Engine) ApplyNetworks(dryRun bool) error {
-	return network.Reconcile(e.nets, dryRun)
+	return vnet.Reconcile(e.nets, dryRun)
 }
 
 func (e *Engine) ApplyNetwork(ref string, dryRun bool) error {
@@ -109,7 +109,7 @@ func (e *Engine) ApplyNetwork(ref string, dryRun bool) error {
 		return err
 	}
 
-	return network.Ensure(e.nets, n, dryRun)
+	return vnet.Ensure(e.nets, n, dryRun)
 }
 
 func (e *Engine) DestroyNetwork(ref string) error {
@@ -163,7 +163,7 @@ func (e *Engine) DestroyNetwork(ref string) error {
 		}
 	}
 
-	if err := network.Destroy(n); err != nil {
+	if err := vnet.Destroy(n); err != nil {
 		return err
 	}
 

@@ -6,6 +6,7 @@ import {
   addVMInterface,
   updateVMInterface,
   removeVMInterface,
+  suggestMAC,
   type Job,
   type Network,
   type VMInterface,
@@ -73,6 +74,12 @@ export function VMNetwork({ vm, networks, loading, error, run }: VMNetworkProps)
     setNetwork(nic === 'new' ? 'user' : nic.network || 'user')
     setMAC(nic === 'new' ? '' : nic.mac || '')
     setEditing(nic)
+  }
+
+  async function suggest() {
+    if (action.busy) return
+    const suggestion = await suggestMAC()
+    setMAC(suggestion.mac)
   }
 
   async function apply() {
@@ -205,6 +212,16 @@ export function VMNetwork({ vm, networks, loading, error, run }: VMNetworkProps)
                   onChange={(event) => setMAC(event.target.value)}
                 />
               </PreferencesGroup>
+              <div className="mt-2 flex gap-2">
+                <Button type="button" size="sm" variant="outline" disabled={action.busy} onClick={() => void suggest()}>
+                  Suggest MAC
+                </Button>
+                {mac.trim() && (
+                  <Button type="button" size="sm" variant="ghost" disabled={action.busy} onClick={() => setMAC('')}>
+                    Use Automatic
+                  </Button>
+                )}
+              </div>
             </details>
             {running && editing !== 'new' && (
               <NoticeBanner intent="warning">

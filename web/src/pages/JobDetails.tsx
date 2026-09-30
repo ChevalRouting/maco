@@ -54,7 +54,12 @@ export default function JobDetails() {
                 ? new Date(job.finished_at).toLocaleString()
                 : unfinishedTime(job)}
             </Row>
-            {job.error && <Row title="Error">{job.error}</Row>}
+            {job.error && (
+              <Row
+                title="Error"
+                subtitle={<span className="break-words text-destructive">{job.error}</span>}
+              />
+            )}
           </PreferencesGroup>
           <div className="space-y-2">
             <SectionLabel>Logs</SectionLabel>

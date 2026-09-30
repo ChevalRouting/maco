@@ -7,8 +7,24 @@ import (
 	"net/http"
 )
 
+// @Summary suggestMAC
+// @ID suggestMAC
+// @Description Generate a suggested guest MAC address. Use the returned address in a VM interface request when a specific MAC is desired.
+// @x-maco {"expose":true,"readOnly":true,"transport":"json"}
+// @Tags vms
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} engine.MACSuggestion
+// @Failure 401 {object} ErrorResponse
+// @Router /api/interfaces/mac [get]
+func (s *Server) suggestMAC(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.engine.SuggestMAC())
+}
+
 // @Summary addVMInterface
 // @ID addVMInterface
+// @Description Add a network interface to a VM. Select the VM ID from listVMs and network ID from listNetworks. Guest addresses use CIDR notation; gateway and nameservers are IP addresses. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -26,6 +42,8 @@ func (s *Server) addVMInterface(w http.ResponseWriter, r *http.Request) {
 
 // @Summary updateVMInterface
 // @ID updateVMInterface
+// @Description Update an existing VM interface identified by its interface ID from getVM. Inspect its current settings and the request schema before submitting changes. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json
@@ -44,6 +62,8 @@ func (s *Server) updateVMInterface(w http.ResponseWriter, r *http.Request) {
 
 // @Summary removeVMInterface
 // @ID removeVMInterface
+// @Description Remove a VM network interface by its interface ID from getVM. This can disconnect the guest from its network. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
 // @Tags vms
 // @Security BearerAuth
 // @Produce json

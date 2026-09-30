@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { NoticeBanner } from 'cheval-ui'
 import { type Job } from '../api'
-import { activityName, activityState } from '../ux'
+import { activityName, activityState, navOrigin } from '../ux'
 
 interface ActionStatusProps {
   job?: Job | null
@@ -10,6 +10,7 @@ interface ActionStatusProps {
 }
 
 export function ActionStatus({ job, error, hideProgress }: ActionStatusProps) {
+  const location = useLocation()
   if (!job && !error) return null
   const failure = error || (job?.state === 'failed' ? job.error : '')
   const showLink = job && !hideProgress
@@ -20,6 +21,7 @@ export function ActionStatus({ job, error, hideProgress }: ActionStatusProps) {
       {showLink && (
         <Link
           to={`/jobs/${encodeURIComponent(job.id)}`}
+          state={{ from: navOrigin(location) }}
           className="inline-block whitespace-normal break-words text-primary hover:underline"
         >
           {activityName(job)} · {activityState(job)} · View Details

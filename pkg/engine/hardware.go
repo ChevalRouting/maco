@@ -13,10 +13,10 @@ import (
 )
 
 type UpdateHardwareParams struct {
-	Autostart   *bool `json:"autostart,omitempty" binding:"optional"`
-	CPUs        *int  `json:"cpus,omitempty" binding:"optional"`
-	MemoryMiB   *int  `json:"memory_mib,omitempty" binding:"optional"`
-	DiskSizeGiB *int  `json:"disk_size_gib,omitempty" binding:"optional"`
+	Autostart   *bool `json:"autostart,omitempty" binding:"optional" extensions:"x-maco-description=Whether host reconciliation starts this VM automatically. Omit to preserve."`
+	CPUs        *int  `json:"cpus,omitempty" binding:"optional" extensions:"x-maco-description=New CPU count. VM must be stopped. Omit to preserve current setting." minimum:"1"`
+	MemoryMiB   *int  `json:"memory_mib,omitempty" binding:"optional" extensions:"x-maco-description=New memory in MiB. VM must be stopped. Omit to preserve current setting." minimum:"64"`
+	DiskSizeGiB *int  `json:"disk_size_gib,omitempty" binding:"optional" extensions:"x-maco-description=New primary disk capacity in GiB. Shrinking is not supported." minimum:"1"`
 }
 
 func (e *Engine) UpdateHardware(ctx context.Context, ref string, params UpdateHardwareParams) error {

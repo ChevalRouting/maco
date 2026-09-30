@@ -50,8 +50,6 @@ export const networkModes = [
 ]
 export const builtinNetworks = [
   networkModes[0],
-  { value: 'vmnet-shared', label: 'Shared Internet Network', help: 'VMs share a private network with automatic addresses and internet access through this Mac. Requires host administrator privileges.' },
-  { value: 'vmnet-host', label: 'Host-only Network', help: 'VMs communicate with this Mac and other VMs on the host-only network. Automatic addresses are supplied; no internet sharing. Requires host administrator privileges.' },
 ]
 export function networkModeName(mode: string): string {
   return networkModes.find(item => item.value === (mode === 'bridged' ? 'vmnet-bridged' : mode))?.label || mode
@@ -81,7 +79,48 @@ export function macError(value: string): string {
 export function nameError(value: string): string {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/.test(value) ? '' : 'Use 1–63 letters, digits, dots, underscores or hyphens; begin with a letter or digit.'
 }
+export function hostnameError(value: string): string {
+  return !value.trim() || /^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*$/.test(value.trim()) ? '' : 'Enter a valid hostname, for example web-01 or db.internal.'
+}
+export function ipError(value: string): string {
+  if (!value.trim()) return ''
+  const address = value.trim()
+  const v4 = address.split('.')
+  const isV4 = v4.length === 4 && v4.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255)
+  const halves = address.split('::')
+  const groups = address.split(':').filter(Boolean)
+  const isV6 = address.includes(':') && halves.length <= 2 && groups.every(part => /^[0-9a-f]{1,4}$/i.test(part)) && (halves.length === 2 ? groups.length < 8 : groups.length === 8)
+  return isV4 || isV6 ? '' : 'Enter an IP address, for example 192.168.1.1 or 2001:db8::1.'
+}
+export function splitList(value: string): string[] {
+  return value.split(/[\s,]+/).map(item => item.trim()).filter(Boolean)
+}
+export function dnsError(value: string): string {
+  return splitList(value).some(item => !!ipError(item)) ? 'Enter IP addresses separated by commas, for example 1.1.1.1, 8.8.8.8.' : ''
+}
 
 export function safeReturnPath(value: string | null): string {
   return value && value.startsWith('/') && !value.startsWith('//') && !value.includes('\\') && !value.startsWith('/login') ? value : '/'
+}
+
+export interface NavOrigin {
+  pathname: string
+  search: string
+}
+
+export function navOrigin(location: { pathname: string; search: string }): NavOrigin {
+  return { pathname: location.pathname, search: location.search }
+}
+
+export function pageLabel(pathname: string): string {
+  if (pathname === '/') return 'Virtual Machines'
+  if (pathname.startsWith('/vms/')) return 'the virtual machine'
+  if (pathname.startsWith('/networks')) return 'Networks'
+  if (pathname.startsWith('/disks')) return 'Disks'
+  if (pathname.startsWith('/media')) return 'Images & ISOs'
+  if (pathname.startsWith('/jobs')) return 'Activity'
+  if (pathname.startsWith('/api-docs')) return 'API'
+  if (pathname.startsWith('/console')) return 'Console'
+  if (pathname.startsWith('/profile')) return 'Profile'
+  return 'previous page'
 }

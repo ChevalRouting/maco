@@ -48,7 +48,9 @@ class DisplaySession {
   }
 
   private connected = () => {
-    if (this.active) this.status('Connected', true)
+    if (!this.active) return
+    this.status('Connected', true)
+    this.display?.focus()
   }
 
   private disconnected = () => {

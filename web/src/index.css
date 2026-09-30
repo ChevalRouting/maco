@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Allow scrolling without page pinch or double-tap zoom in the installed app. */
+html.standalone-app {
+  touch-action: pan-x pan-y;
+  --app-top-inset: calc(env(safe-area-inset-top, 0px) + 1rem);
+}
+
+.standalone-app .app-frame {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100lvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding: var(--app-top-inset) env(safe-area-inset-right, 0px) 0.125rem env(safe-area-inset-left, 0px);
+  @apply bg-sidebar;
+}
+
+.standalone-app .app-frame > div {
+  height: 100%;
+  min-height: 0;
+}
+
+.standalone-app .app-frame main {
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+/* Keep tab strips usable inside constrained flex layouts. */
+[role="tablist"] {
+  min-width: 0;
+  max-width: 100%;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+[role="tablist"]::-webkit-scrollbar {
+  display: none;
+}
+
 @layer base {
   *,
   ::before,
@@ -32,6 +79,54 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-spin { animation: none; }
+}
+
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  /* Avoid focus zoom on mobile, including the autofocused login field. */
+  input,
+  select,
+  textarea:not(.xterm-helper-textarea) {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 767px) {
+  .table-cards,
+  .table-cards tbody {
+    display: block;
+    width: 100%;
+  }
+  .table-cards thead {
+    display: none;
+  }
+  .table-cards tr {
+    display: block;
+    padding: 0.5rem 0.875rem;
+    margin-bottom: 0.625rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    background: hsl(var(--card));
+  }
+  .table-cards tr:last-child {
+    margin-bottom: 0;
+  }
+  .table-cards td {
+    display: block;
+    padding: 0.3125rem 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+  }
+  .table-cards td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.125rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
 }
 @media (forced-colors: active) {
   :focus-visible { outline: 2px solid Highlight !important; outline-offset: 2px; }

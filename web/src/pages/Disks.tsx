@@ -45,7 +45,7 @@ export default function Disks() {
       {!loading && (
         total ? (
           <>
-            <Table>
+            <Table className="table-cards">
               <TableHeader>
                 <TableRow>
                   <TableHead>Disk</TableHead>

@@ -165,6 +165,16 @@ func (c *qmpClient) powerdown() error {
 	return err
 }
 
+func (c *qmpClient) reset() error {
+	if err := c.conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		return err
+	}
+
+	defer func() { _ = c.conn.SetDeadline(time.Time{}) }()
+	_, err := c.execute("system_reset")
+	return err
+}
+
 func (d *Driver) Shutdown(id string) error {
 	lock, err := d.lock(id)
 	if err != nil {
@@ -180,4 +190,21 @@ func (d *Driver) Shutdown(id string) error {
 	}
 	defer client.close()
 	return client.powerdown()
+}
+
+func (d *Driver) Reboot(id string) error {
+	lock, err := d.lock(id)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	if d.Status(id).Phase != PhaseRunning {
+		return nil
+	}
+	client, err := dialQMP(d.qmpPath(id), 3*time.Second)
+	if err != nil {
+		return err
+	}
+	defer client.close()
+	return client.reset()
 }

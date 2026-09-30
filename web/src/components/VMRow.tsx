@@ -28,7 +28,7 @@ export function VMRow({ vm, run }: VMRowProps) {
           />
         </Link>
       </TableCell>
-      <TableCell className="max-w-[14rem]">
+      <TableCell data-label="Name" className="max-w-[14rem]">
         <Link
           className="block whitespace-normal break-words font-medium text-primary hover:underline"
           to={`/vms/${id}`}
@@ -37,15 +37,15 @@ export function VMRow({ vm, run }: VMRowProps) {
           {vm.manifest.name}
         </Link>
       </TableCell>
-      <TableCell className="max-w-[16rem] whitespace-normal break-words">
+      <TableCell data-label="Source" className="max-w-[16rem] whitespace-normal break-words">
         <SourceName image={vm.manifest.image} />
       </TableCell>
-      <TableCell>{memoryLabel(vm.manifest.memory_mib)}</TableCell>
-      <TableCell>
+      <TableCell data-label="Memory">{memoryLabel(vm.manifest.memory_mib)}</TableCell>
+      <TableCell data-label="State">
         <VMStatusBadge phase={vm.phase} />
       </TableCell>
-      <TableCell>{vm.manifest.autostart ? 'Yes' : 'No'}</TableCell>
-      <TableCell>
+      <TableCell data-label="Automatic Startup">{vm.manifest.autostart ? 'Yes' : 'No'}</TableCell>
+      <TableCell data-label="Actions">
         <VMActions vm={vm} run={run} />
       </TableCell>
     </TableRow>

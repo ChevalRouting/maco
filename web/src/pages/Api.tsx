@@ -1,6 +1,7 @@
-import { Suspense, lazy, useState } from 'react'
+import { Suspense, lazy } from 'react'
 import { PageHeader, Spinner, Tabs } from 'cheval-ui'
 import { ApiKeys } from '../components/ApiKeys'
+import { useTabParam } from '../hooks/useTabParam'
 
 const ApiDocsPanel = lazy(() => import('../components/ApiDocsPanel'))
 
@@ -12,7 +13,7 @@ const tabs: { key: ApiTab; label: string }[] = [
 ]
 
 export default function Api() {
-  const [tab, setTab] = useState<ApiTab>('keys')
+  const [tab, setTab] = useTabParam<ApiTab>(['keys', 'docs'], 'keys')
 
   return (
     <div className="space-y-6">

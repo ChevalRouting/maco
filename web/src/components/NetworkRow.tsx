@@ -36,19 +36,19 @@ export function NetworkRow({ network, run }: NetworkRowProps) {
 
   return (
     <TableRow>
-      <TableCell>{network.name}</TableCell>
-      <TableCell>{networkModeName(network.mode)}</TableCell>
-      <TableCell>
+      <TableCell data-label="Name">{network.name}</TableCell>
+      <TableCell data-label="Mode">{networkModeName(network.mode)}</TableCell>
+      <TableCell data-label="Target">
         {network.mode === 'user' ? 'Per-interface NAT' : network.mode === 'vlan'
           ? network.parent
           : network.device || network.uplink || network.group || 'Unapplied'}
       </TableCell>
-      <TableCell>
+      <TableCell data-label="Address">
         {network.mode === 'vlan'
           ? `VLAN ${network.tag}${network.device ? ` · ${network.device}` : ''}`
           : network.address || 'None'}
       </TableCell>
-      <TableCell>
+      <TableCell data-label="Actions">
         {admin ? (
           <>
             <div className="flex flex-wrap items-center gap-1">
