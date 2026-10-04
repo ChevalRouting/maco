@@ -38,7 +38,7 @@ stored at `<data-dir>/redis.secret` (0600) and threaded into the daemon's Redis
 URL, so other local accounts cannot read task payloads or forge queued
 operations. When you point maco at an external Redis with `MACO_REDIS_URL`,
 supply credentials in that URL and restrict access yourself. The development
-`docker-compose.yml` binds loopback without a password; add `--requirepass` for
+`compose.yml` binds loopback without a password; add `--requirepass` for
 any shared host.
 
 VM passwords supplied at creation transit the job payload in Redis. The

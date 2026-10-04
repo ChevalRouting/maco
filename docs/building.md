@@ -71,7 +71,7 @@ the repository root:
 docker compose up -d --wait redis
 ```
 
-`docker-compose.yml` uses the official Redis image, publishes port 6379 only
+`compose.yml` uses the official Redis image, publishes port 6379 only
 on `127.0.0.1`, and stores data in the named `redis-data` volume. AOF persistence
 is enabled with a one-second fsync interval. The `noeviction` policy keeps job
 records from being evicted under memory pressure. Include the volume in backups.
