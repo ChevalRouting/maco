@@ -4,7 +4,6 @@ import { Usb } from 'lucide-react'
 import { assignUSB, unassignUSB, attachUSB, detachUSB, listUSBDevices, listVMUSB, type Job, type USBDevice, type USBInventory, type USBAttachment, type VMView } from '../api'
 import { useResource } from '../hooks/useResource'
 import { useRowAction } from '../hooks/useRowAction'
-import { ActionStatus } from './ActionStatus'
 import { ResourceNotice } from './ResourceNotice'
 import { JobNotice } from './JobNotice'
 
@@ -102,7 +101,6 @@ export function VMUSB({ vm, run, error = '' }: VMUSBProps) {
         </Button>
       </div>
 
-      <ActionStatus job={action.job} error={action.error} />
       <ResourceNotice resource={attachments} name="USB connections" />
 
       {!attachments.loading && !attachments.error && attachments.data.length === 0 && (

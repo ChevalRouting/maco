@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Dialog, Button, PreferencesGroup, NoticeBanner, SwitchRow } from 'cheval-ui'
+import { Dialog, Button, PreferencesGroup, NoticeBanner, SwitchRow, TagInput } from 'cheval-ui'
 import { createVM, listCatalog, listMedia, listNetworks, getHost, suggestMAC, type CreateVMParams, type GuestCapability } from '../api'
 import { useResource } from '../hooks/useResource'
 import { useJobAction } from '../hooks/useJobAction'
@@ -24,6 +24,7 @@ const defaults: VMForm = {
   memory_mib: 2048,
   disk_size_gib: 20,
   addresses: [],
+  tags: [],
   autostart: false,
 }
 
@@ -70,6 +71,7 @@ function specToState(initial?: CreateVMInitial): SeededState {
     memory_mib: spec.memory_mib || defaults.memory_mib,
     disk_size_gib: spec.disk_size_gib || defaults.disk_size_gib,
     addresses: spec.addresses ?? [],
+    tags: spec.tags ?? [],
     autostart: spec.autostart ?? false,
     isos: spec.isos ?? [],
   }
@@ -341,6 +343,18 @@ export function CreateVMDialog({
                 checked={form.autostart}
                 onCheckedChange={(autostart) => setForm({ ...form, autostart })}
               />
+            </PreferencesGroup>
+            <PreferencesGroup
+              title="Tags"
+              description="Freeform labels for grouping and filtering, such as role or environment."
+            >
+              <div className="px-4 py-3">
+                <TagInput
+                  values={form.tags}
+                  placeholder="Add a tag"
+                  onChange={(tags) => setForm({ ...form, tags })}
+                />
+              </div>
             </PreferencesGroup>
             <PreferencesGroup
               title="Additional Disks"

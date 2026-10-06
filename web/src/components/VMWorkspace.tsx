@@ -97,6 +97,20 @@ export function VMWorkspace({ vm, run, networkName }: VMWorkspaceProps) {
               label="Automatic Startup"
               value={manifest.autostart ? 'Enabled' : 'Disabled'}
             />
+            {manifest.tags && manifest.tags.length > 0 && (
+              <Characteristic
+                label="Tags"
+                value={
+                  <span className="flex flex-wrap gap-1.5">
+                    {manifest.tags.map((tag) => (
+                      <span key={tag} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                        {tag}
+                      </span>
+                    ))}
+                  </span>
+                }
+              />
+            )}
           </dl>
           <details className="mt-4 text-sm">
             <summary className="cursor-pointer text-muted-foreground">Technical Details</summary>

@@ -16,7 +16,6 @@ import { builtinNetworks, macError, networkHelp, networkModeName } from '../ux'
 import { useRowAction } from '../hooks/useRowAction'
 import { ChoiceRow, type Choice } from './ChoiceRow'
 import { ValidatedEntryRow } from './ValidatedEntryRow'
-import { ActionStatus } from './ActionStatus'
 import { JobNotice } from './JobNotice'
 
 export function vmNetworkName(ref: string | undefined, networks: Network[], loading = false): string {
@@ -136,7 +135,6 @@ export function VMNetwork({ vm, networks, loading, error, run }: VMNetworkProps)
       </p>
 
       <JobNotice error={error} />
-      <ActionStatus job={action.job} error={action.error} hideProgress />
 
       <PreferencesGroup>
         {interfaces.map((nic, index) => (

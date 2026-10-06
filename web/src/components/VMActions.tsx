@@ -5,7 +5,6 @@ import { ChevronDown, LoaderCircle, Monitor, Play, Power, RotateCcw, Square, Ter
 import { deleteVM, rebootVM, shutdownVM, startVM, stopVM, type Job, type VMView } from '../api'
 import { useRowAction } from '../hooks/useRowAction'
 import { useSession } from '../hooks/useSession'
-import { ActionStatus } from './ActionStatus'
 import { VMConsoleDialog, type ConsoleMode } from './VMConsoleDialog'
 
 export function VMActions({ vm, run }: { vm: VMView; run: (action: () => Promise<Job>) => Promise<Job | null> }) {
@@ -113,7 +112,6 @@ export function VMActions({ vm, run }: { vm: VMView; run: (action: () => Promise
             <ChevronDown aria-hidden="true" className="h-4 w-4" />
           </Button>
         </div>
-        <ActionStatus job={action.job} error={action.error} hideProgress />
       </div>
 
       {open && createPortal(

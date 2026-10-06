@@ -224,6 +224,10 @@ export type EngineCreateVmParams = {
      * Default interface network ID from listNetworks or user for NAT. Omission uses user networking.
      */
     network?: string;
+    /**
+     * Freeform labels stored on the VM for grouping and filtering
+     */
+    tags?: Array<string>;
 };
 
 export type EngineDiskParams = {
@@ -408,6 +412,10 @@ export type EngineUpdateHardwareParams = {
      * New memory in MiB. VM must be stopped. Omit to preserve current setting.
      */
     memory_mib?: number;
+    /**
+     * Replacement set of freeform labels for grouping and filtering. Omit to preserve; pass an empty list to clear.
+     */
+    tags?: Array<string>;
 };
 
 export type EngineVmView = {
@@ -556,6 +564,7 @@ export type TypesVmManifest = {
     nameservers?: Array<string>;
     network?: string;
     ssh_keys?: Array<string>;
+    tags?: Array<string>;
     usb?: Array<TypesVmusbAssignment>;
 };
 

@@ -23,7 +23,7 @@ export default function Login() {
       logo={Logo}
     >
       {params.has('expired') && (
-        <NoticeBanner intent="info">
+        <NoticeBanner intent="info" className="relative z-10 -mb-3 rounded-t-xl">
           The session expired. Sign in to return to the previous page.
         </NoticeBanner>
       )}

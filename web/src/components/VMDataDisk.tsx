@@ -1,4 +1,3 @@
-import { ActionStatus } from './ActionStatus'
 import { IntegerEntryRow } from './IntegerEntryRow'
 import { useState, type FormEvent } from 'react'
 import { AlertDialog, Badge, Button, Dialog, PreferencesGroup } from 'cheval-ui'
@@ -109,7 +108,6 @@ export function VMDataDisk({ vm, disk, primary, run }: VMDataDiskProps) {
             )}
           </div>
         </div>
-        <ActionStatus job={action.job} error={action.error} />
       </article>
       {growing && (
         <Dialog

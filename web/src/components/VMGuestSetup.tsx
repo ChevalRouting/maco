@@ -5,7 +5,6 @@ import { useResource } from '../hooks/useResource'
 import { useRowAction } from '../hooks/useRowAction'
 import { GuestSetup, type GuestSetupValue } from './GuestSetup'
 import { TemplateVariables } from './TemplateVariables'
-import { ActionStatus } from './ActionStatus'
 import { ResourceNotice } from './ResourceNotice'
 
 function toValue(setup: GuestSetupView): GuestSetupValue {
@@ -65,7 +64,6 @@ export function VMGuestSetup({ vm, run }: { vm: VMView; run: (action: () => Prom
             activeFile={activeFile}
             onActiveFileChange={setActiveFile}
           />
-          <ActionStatus job={action.job} error={action.error} />
           <div className="flex justify-end">
             <Button variant="suggested" onClick={save} disabled={blocked || rawMissing}>
               {action.busy ? 'Saving…' : 'Save guest setup'}

@@ -6,7 +6,6 @@ import { useResource } from '../hooks/useResource'
 import { DistroIcon } from './DistroIcon'
 import { JobNotice } from './JobNotice'
 import { ResourceNotice } from './ResourceNotice'
-import { ActionStatus } from './ActionStatus'
 import { useJobAction } from '../hooks/useJobAction'
 import { useRowAction } from '../hooks/useRowAction'
 import { useSession } from '../hooks/useSession'
@@ -95,7 +94,6 @@ function CatalogCard({ image, refresh }: { image: CatalogImage; refresh: () => v
               {action.busy ? 'Downloading…' : 'Download'}
             </Button>
           )}
-          <ActionStatus job={action.job} error={action.error} />
         </div>
       )}
 

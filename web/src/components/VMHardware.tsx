@@ -1,29 +1,31 @@
 import type { FormEvent } from 'react'
-import { Button, NoticeBanner, PreferencesGroup } from 'cheval-ui'
+import { Button, NoticeBanner, PreferencesGroup, TagInput } from 'cheval-ui'
 import { getHost, updateHardware, type VMView, type Job } from '../api'
 import { useRowAction } from '../hooks/useRowAction'
 import { useResource } from '../hooks/useResource'
 import { useDraft } from '../hooks/useDraft'
 import { IntegerEntryRow } from './IntegerEntryRow'
 import { MemoryEntryRow } from './MemoryEntryRow'
-import { ActionStatus } from './ActionStatus'
 import { ResourceNotice } from './ResourceNotice'
 import { memoryLabel } from '../ux'
 
 export function VMHardware({ vm, run }: { vm: VMView; run: (action: () => Promise<Job>) => Promise<Job | null> }) {
   const manifest = vm.manifest
-  const draft = useDraft(`maco:draft:${manifest.id}:compute`, {
+  const draft = useDraft(`maco:draft:${manifest.id}:general`, {
     cpus: manifest.cpus,
     memory_mib: manifest.memory_mib,
+    tags: manifest.tags ?? [],
   })
   const host = useResource(getHost, null, 'host')
   const action = useRowAction(manifest.id, manifest.name, 'vm', run)
-  const blocked = vm.phase === 'running' || action.busy
+  const running = vm.phase === 'running'
+  const computeBlocked = running || action.busy
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (blocked || !draft.dirty || draft.conflict) return
-    await action.execute('vm.hardware', () => updateHardware(manifest.id, draft.value))
+    if (action.busy || !draft.dirty || draft.conflict) return
+    const body = running ? { tags: draft.value.tags } : draft.value
+    await action.execute('vm.hardware', () => updateHardware(manifest.id, body))
   }
 
   const hostMemoryMib = host.data ? host.data.memory_bytes / (1024 * 1024) : 0
@@ -52,8 +54,11 @@ export function VMHardware({ vm, run }: { vm: VMView; run: (action: () => Promis
         </NoticeBanner>
       )}
 
-      <fieldset disabled={blocked}>
-        <PreferencesGroup title="CPU & Memory">
+      <fieldset disabled={computeBlocked}>
+        <PreferencesGroup
+          title="CPU & Memory"
+          description={running ? 'Stop the VM to change CPU or memory.' : undefined}
+        >
           <IntegerEntryRow
             id="hardware-cpus"
             title="CPUs"
@@ -70,9 +75,22 @@ export function VMHardware({ vm, run }: { vm: VMView; run: (action: () => Promis
         </PreferencesGroup>
       </fieldset>
 
+      <PreferencesGroup
+        title="Tags"
+        description="Freeform labels for grouping and filtering, such as role or environment."
+      >
+        <div className="px-4 py-3">
+          <TagInput
+            values={draft.value.tags}
+            placeholder="Add a tag"
+            onChange={(tags) => draft.set({ ...draft.value, tags })}
+          />
+        </div>
+      </PreferencesGroup>
+
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" variant="suggested" disabled={blocked || !draft.dirty || draft.conflict}>
-          {action.busy ? 'Saving…' : 'Save CPU & Memory'}
+        <Button type="submit" variant="suggested" disabled={action.busy || !draft.dirty || draft.conflict}>
+          {action.busy ? 'Saving…' : 'Save'}
         </Button>
         <Button type="button" variant="outline" disabled={!draft.dirty || action.busy} onClick={draft.discard}>
           Discard Changes
@@ -82,7 +100,6 @@ export function VMHardware({ vm, run }: { vm: VMView; run: (action: () => Promis
         </span>
       </div>
 
-      <ActionStatus job={action.job} error={action.error} />
     </form>
   )
 }

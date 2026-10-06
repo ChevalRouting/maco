@@ -25,7 +25,7 @@ type VMTab = 'overview' | 'compute' | 'guest' | 'disks' | 'usb' | 'media' | 'net
 
 const tabs: { key: VMTab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
-  { key: 'compute', label: 'CPU & memory' },
+  { key: 'compute', label: 'General' },
   { key: 'guest', label: 'Guest setup' },
   { key: 'network', label: 'Network' },
   { key: 'disks', label: 'Disks' },

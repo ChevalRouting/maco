@@ -4,7 +4,6 @@ import { Button, Dialog, EntryRow, PreferencesGroup } from 'cheval-ui'
 import { addDisk, type VMView, type Job } from '../api'
 import { useRowAction } from '../hooks/useRowAction'
 import { VMDataDisk } from './VMDataDisk'
-import { ActionStatus } from './ActionStatus'
 
 interface VMDisksProps {
   vm: VMView
@@ -44,7 +43,6 @@ export function VMDisks({ vm, run }: VMDisksProps) {
         Add disk
       </Button>
       </div>
-      <ActionStatus job={action.job} error={action.error} />
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
         <VMDataDisk
           key="boot"

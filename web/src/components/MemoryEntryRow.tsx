@@ -32,7 +32,6 @@ export function MemoryEntryRow({ id, value, onValueChange, disabled }: MemoryEnt
       inputMode="decimal"
       value={text}
       error={error}
-      help="1 GiB = 1024 MiB"
       onChange={(event) => {
         const next = event.target.value
         setText(next)

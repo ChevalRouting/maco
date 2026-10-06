@@ -17,7 +17,6 @@ import {
 import { formatBytes } from '../ux'
 import { useResource } from '../hooks/useResource'
 import { useRowAction } from '../hooks/useRowAction'
-import { ActionStatus } from './ActionStatus'
 import { VMBackupSchedule } from './VMBackupSchedule'
 
 interface VMSnapshotsBackupsProps {
@@ -166,7 +165,6 @@ export function VMSnapshotsBackups({ vm, run }: VMSnapshotsBackupsProps) {
         A backup is a full, self-contained copy of every VM disk plus its configuration. Backups can
         be created while the VM is running.
       </p>
-      <ActionStatus job={action.job} error={action.error} />
       {backups.error && <NoticeBanner intent="danger">{backups.error}</NoticeBanner>}
       {backups.data.length === 0 ? (
         <p className="text-sm text-muted-foreground">No backups yet.</p>

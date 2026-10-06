@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { CreateNetworkDialog } from './CreateNetworkDialog'
 import { ActionButton } from './ActionButton'
-import { ActionStatus } from './ActionStatus'
 import { useRowAction } from '../hooks/useRowAction'
 import { networkModeName } from '../ux'
 import { useResource } from '../hooks/useResource'
@@ -60,7 +59,6 @@ export function NetworkRow({ network, run }: NetworkRowProps) {
                 busy={action.action === 'network.destroy'}
                 onClick={() => setConfirm(true)}
               />
-              <ActionStatus job={action.job} error={action.error} />
               {users.length > 0 && (
                 <p className="max-w-sm break-words text-sm text-muted-foreground">
                   Used by one or more virtual machines. Move or remove those adapters before deleting.

@@ -89,20 +89,19 @@ export function JobsPanel() {
               <span className="min-w-0 break-words">{notification.error}</span>
             </span>
           )}
-          {previews.map((job, index) => {
+          {previews.map((job) => {
             const Icon = isRunning(job) ? LoaderCircle : isPending(job) ? Clock : job.state === 'failed' ? CircleAlert : CheckCircle2
             const status = activityState(job)
             const updated = notification?.job?.id === job.id
             const color = job.state === 'failed' ? 'text-destructive' : job.state === 'succeeded' ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'
             const label = `${activityName(job)} · ${job.target}`
-            const primary = index === 0 && !notification?.error
             return (
               <Link
                 key={updated ? `${job.id}:${notification.sequence}` : job.id}
                 to={`/jobs/${encodeURIComponent(job.id)}`}
                 state={{ from: navOrigin(location) }}
                 title={`${label} · ${status}${job.error ? ` · ${job.error}` : ''}`}
-                className={`min-w-0 items-center gap-2 rounded-md bg-muted px-2 py-1 text-xs hover:bg-muted/80 ${updated ? 'jobs-preview-bump' : ''} ${primary ? 'flex flex-1' : 'hidden max-w-72 md:flex'}`}
+                className={`flex min-w-0 flex-1 basis-0 items-center gap-2 rounded-md bg-muted px-2 py-1 text-xs hover:bg-muted/80 ${updated ? 'jobs-preview-bump' : ''}`}
               >
                 <Icon aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 ${color} ${isRunning(job) ? 'animate-spin motion-reduce:animate-none' : ''}`} />
                 <span className="truncate">{label}</span>
@@ -111,13 +110,8 @@ export function JobsPanel() {
               </Link>
             )
           })}
-          {candidates.length > 1 && (
-            <span className="shrink-0 text-xs text-muted-foreground md:hidden">
-              +{candidates.length - 1}
-            </span>
-          )}
           {candidates.length > previews.length && (
-            <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">
+            <span className="shrink-0 text-xs text-muted-foreground">
               +{candidates.length - previews.length}
             </span>
           )}
