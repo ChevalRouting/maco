@@ -40,6 +40,7 @@ type CreateVMParams struct {
 	Addresses   []string `json:"addresses" binding:"optional" extensions:"x-maco-description=Static IPv4 or IPv6 CIDR addresses for the primary guest interface. Omission uses guest provisioning defaults."`
 	Gateway     string   `json:"gateway" binding:"optional" extensions:"x-maco-description=Optional primary-interface gateway IP address."`
 	Nameservers []string `json:"nameservers" binding:"optional" extensions:"x-maco-description=DNS server IP addresses for guest provisioning."`
+	Tags        []string `json:"tags,omitempty" binding:"optional" extensions:"x-maco-description=Freeform labels stored on the VM for grouping and filtering, such as role or environment. Trimmed and de-duplicated."`
 	Autostart   bool     `json:"autostart" binding:"optional" extensions:"x-maco-description=Whether host reconciliation should automatically start this VM. Default false."`
 
 	Disks      []CreateDiskParams `json:"disks,omitempty" binding:"optional" extensions:"x-maco-description=Additional named data disks with capacities in GiB."`
@@ -86,6 +87,20 @@ func trimAddresses(addresses []string) []string {
 		}
 	}
 	return trimmed
+}
+
+func normalizeTags(tags []string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, tag := range tags {
+		value := strings.TrimSpace(tag)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	return out
 }
 
 func validateGuestNetwork(addresses []string, gateway string, nameservers []string) error {
@@ -156,6 +171,7 @@ func (e *Engine) CreateVM(params CreateVMParams, sshKeys []string) (*types.VMMan
 		Gateway:     strings.TrimSpace(params.Gateway),
 		Nameservers: trimAddresses(params.Nameservers),
 		SSHKeys:     sshKeys,
+		Tags:        normalizeTags(params.Tags),
 		Autostart:   params.Autostart,
 	}
 

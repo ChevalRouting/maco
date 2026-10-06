@@ -511,6 +511,15 @@
                     "network": {
                         "type": "string",
                         "description": "Default interface network ID from listNetworks or user for NAT. Omission uses user networking."
+                    },
+                    "tags": {
+                        " such as role or environment. trimmed and de-duplicated.": true,
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false,
+                        "description": "Freeform labels stored on the VM for grouping and filtering"
                     }
                 },
                 "required": [
@@ -986,6 +995,14 @@
                         "minimum": 64,
                         "type": "integer",
                         "description": "New memory in MiB. VM must be stopped. Omit to preserve current setting."
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false,
+                        "description": "Replacement set of freeform labels for grouping and filtering. Omit to preserve; pass an empty list to clear."
                     }
                 },
                 "type": "object"
@@ -1530,6 +1547,13 @@
                         "type": "string"
                     },
                     "ssh_keys": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "tags": {
                         "items": {
                             "type": "string"
                         },

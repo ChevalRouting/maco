@@ -66,6 +66,7 @@ type VMManifest struct {
 	Gateway     string            `yaml:"gateway,omitempty" json:"gateway,omitempty" validate:"omitempty,ip" binding:"optional"`
 	Nameservers []string          `yaml:"nameservers,omitempty" json:"nameservers,omitempty" validate:"dive,ip" binding:"optional"`
 	SSHKeys     []string          `yaml:"ssh_keys,omitempty" json:"ssh_keys,omitempty" binding:"optional"`
+	Tags        []string          `yaml:"tags,omitempty" json:"tags,omitempty" binding:"optional"`
 	Autostart   bool              `yaml:"autostart,omitempty" json:"autostart,omitempty" binding:"optional"`
 }
 
