@@ -9,9 +9,13 @@ go build -o maco-mcp ./cmd/maco-mcp
 go test ./...
 ```
 
-Create an API key on your Maco server and write a registry:
+Create an API key on your Maco server and write the shared client config.
+By default `maco-mcp` reads `$XDG_CONFIG_HOME/maco/client.yml` (usually
+`~/.config/maco/client.yml`), overridable with `$MACO_CLIENT_CONFIG` or
+`--config`. This is the same file the `infra/` Ansible tooling consumes:
 
 ```yaml
+default: lab
 instances:
   lab:
     url: https://maco.example.com:8080
@@ -20,10 +24,10 @@ instances:
 
 Set that environment variable in your MCP client's process environment. For
 trusted self-signed hosts, add `tls: {skip_verify: true}` to that instance.
-Launch the binary with absolute paths:
+Launch the binary (reads the default path):
 
 ```sh
-/absolute/path/maco-mcp --config /absolute/path/instances.yml
+/absolute/path/maco-mcp
 ```
 
 Register this command and its arguments in your MCP client. Protocol output

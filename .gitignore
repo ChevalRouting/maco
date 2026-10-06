@@ -15,6 +15,6 @@
 .DS_Store
 
 /maco-mcp
-/maco-mcp.yml
+/maco-client.yml
 
 /.task/

@@ -5,17 +5,24 @@ Maco hosts. It follows Routier's named-instance registry and bearer-token
 model. It runs on the agent's machine and connects to existing Maco HTTP APIs;
 it does not start a Maco daemon or require local QEMU, Redis, or root access.
 
+It reads the shared maco client config, the same file used by the `infra/`
+Ansible inventory plugin and template sync script. By default this is
+`$XDG_CONFIG_HOME/maco/client.yml` (usually `~/.config/maco/client.yml`),
+overridable with `$MACO_CLIENT_CONFIG` or `--config`.
+
 ## Build and configure
 
 ```sh
 task build-mcp
-cp maco-mcp.example.yml maco-mcp.yml
-chmod 600 maco-mcp.yml
+mkdir -p ~/.config/maco
+cp maco-client.example.yml ~/.config/maco/client.yml
+chmod 600 ~/.config/maco/client.yml
 ```
 
 Create an API key in Maco's API page, then configure the registry:
 
 ```yaml
+default: lab
 instances:
   lab:
     url: https://maco.example.com:8080
@@ -29,6 +36,9 @@ instances:
       skip_verify: true
 ```
 
+`default` names the instance the `infra/` clients select when none is given;
+`maco-mcp` ignores it and exposes every instance.
+
 `token` may be used instead of `token_env`, but not together. Environment
 variables must be present in the MCP process environment. API keys inherit the
 account's permissions, including the server's admin/viewer restrictions. A
@@ -36,7 +46,7 @@ login JWT also works until it expires. Use `skip_verify: true` only for a truste
 host with a self-signed certificate, such as Maco's default local certificate.
 TLS verification is enabled by default. HTTP redirects are rejected.
 
-The local `maco-mcp.yml` registry is ignored by Git. The checked-in example
+The local `maco-client.yml` registry is ignored by Git. The checked-in example
 contains no credentials. Instance discovery returns names and contract status, and tool
 arguments never override registry URLs or authentication headers. Account
 operations such as `createAPIKey` can return newly created secrets as their
@@ -45,7 +55,7 @@ normal API response.
 Configure your MCP client to launch:
 
 ```sh
-/path/to/maco-mcp --config /absolute/path/to/maco-mcp.yml
+/path/to/maco-mcp --config /absolute/path/to/client.yml
 ```
 
 For clients using a JSON MCP registry:
@@ -55,7 +65,7 @@ For clients using a JSON MCP registry:
   "mcpServers": {
     "maco": {
       "command": "/absolute/path/to/maco-mcp",
-      "args": ["--config", "/absolute/path/to/maco-mcp.yml"]
+      "args": ["--config", "/absolute/path/to/client.yml"]
     }
   }
 }

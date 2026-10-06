@@ -13,6 +13,7 @@ import (
 )
 
 type FileConfig struct {
+	Default   string                    `yaml:"default"`
 	Instances map[string]InstanceConfig `yaml:"instances"`
 }
 
