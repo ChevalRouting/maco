@@ -15,7 +15,7 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	if err := newRootCommand().Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "maco:", err)
+		_, _ = fmt.Fprintln(os.Stderr, "maco:", err)
 		os.Exit(1)
 	}
 }

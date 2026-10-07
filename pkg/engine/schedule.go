@@ -20,17 +20,21 @@ func (e *Engine) GetSchedule(ctx context.Context, ref string) (*types.BackupSche
 	if err != nil {
 		return nil, err
 	}
+
 	database, err := e.OpenDB(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	schedule, ok, err := database.GetBackupSchedule(ctx, m.ID)
 	if err != nil {
 		return nil, err
 	}
+
 	if !ok {
 		return &types.BackupSchedule{VMID: m.ID, IntervalHours: 24}, nil
 	}
+
 	return &schedule, nil
 }
 
@@ -38,17 +42,21 @@ func (e *Engine) SetSchedule(ctx context.Context, ref string, params SchedulePar
 	if params.Enabled && params.IntervalHours < 1 {
 		return nil, fmt.Errorf("interval must be at least 1 hour")
 	}
+
 	if params.KeepLast < 0 || params.MaxAgeDays < 0 {
 		return nil, fmt.Errorf("retention limits cannot be negative")
 	}
+
 	m, err := e.vms.Resolve(ref)
 	if err != nil {
 		return nil, err
 	}
+
 	database, err := e.OpenDB(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	schedule := types.BackupSchedule{
 		VMID:          m.ID,
 		Enabled:       params.Enabled,
@@ -59,9 +67,11 @@ func (e *Engine) SetSchedule(ctx context.Context, ref string, params SchedulePar
 	if schedule.IntervalHours < 1 {
 		schedule.IntervalHours = 24
 	}
+
 	if err := database.SetBackupSchedule(ctx, schedule); err != nil {
 		return nil, err
 	}
+
 	return e.GetSchedule(ctx, m.ID)
 }
 
@@ -70,6 +80,7 @@ func (e *Engine) ListSchedules(ctx context.Context) ([]types.BackupSchedule, err
 	if err != nil {
 		return nil, err
 	}
+
 	return database.ListBackupSchedules(ctx)
 }
 
@@ -78,6 +89,7 @@ func (e *Engine) MarkScheduleRun(ctx context.Context, vmID string, at time.Time)
 	if err != nil {
 		return err
 	}
+
 	return database.MarkBackupScheduleRun(ctx, vmID, at.Unix())
 }
 
@@ -86,6 +98,7 @@ func (e *Engine) PruneBackups(ctx context.Context, ref string, keepLast, maxAgeD
 	if err != nil {
 		return 0, err
 	}
+
 	backups, err := e.ListBackups(m.ID)
 	if err != nil {
 		return 0, err
@@ -97,6 +110,7 @@ func (e *Engine) PruneBackups(ctx context.Context, ref string, keepLast, maxAgeD
 			remove[stale.Timestamp] = true
 		}
 	}
+
 	if maxAgeDays > 0 {
 		cutoff := time.Now().Add(-time.Duration(maxAgeDays) * 24 * time.Hour)
 		for _, backup := range backups {
@@ -112,8 +126,10 @@ func (e *Engine) PruneBackups(ctx context.Context, ref string, keepLast, maxAgeD
 		if err := e.DeleteBackup(m.ID, timestamp); err != nil {
 			return deleted, err
 		}
+
 		deleted++
 	}
+
 	return deleted, nil
 }
 
@@ -123,10 +139,12 @@ func backupCreatedAt(backup BackupInfo) time.Time {
 			return parsed
 		}
 	}
+
 	if len(backup.Timestamp) >= 15 {
 		if parsed, err := time.Parse("20060102-150405", backup.Timestamp[:15]); err == nil {
 			return parsed.UTC()
 		}
 	}
+
 	return time.Time{}
 }

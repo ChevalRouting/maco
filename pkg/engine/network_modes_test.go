@@ -23,6 +23,7 @@ func TestCreateNetworkModes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		for _, ref := range []string{n.Name, n.ID} {
 			spec, err := e.resolveNetwork(ref)
 			if err != nil || spec.Network != tc.want || spec.Uplink != tc.params.Uplink {
@@ -34,13 +35,16 @@ func TestCreateNetworkModes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+
 	n, err := e.CreateNetwork(CreateNetworkParams{Name: "access", VLANs: []types.VLAN{{Parent: "en10", Tag: 123}}})
 	if err != nil || n.Mode != types.NetworkBridge || len(n.VLANs) != 1 {
 		t.Fatalf("bridge VLAN: %+v, %v", n, err)
 	}
+
 	if err := e.ApplyNetwork(n.ID, true); err != nil {
 		t.Fatal(err)
 	}
+
 	for _, params := range []CreateNetworkParams{
 		{Name: "invalid", Mode: "user", Uplink: "en10"},
 		{Name: "invalid", Mode: "user", Parent: "en10", Tag: 123},
@@ -63,24 +67,30 @@ func TestCreateNetworkAppliesAndRollsBack(t *testing.T) {
 		if dryRun {
 			t.Fatal("creation must apply")
 		}
+
 		if _, err := store.Load(n.ID); err != nil {
 			t.Fatal(err)
 		}
+
 		return failure
 	}
 	if _, err := e.CreateNetwork(CreateNetworkParams{Name: "broken", Mode: "bridge"}); !errors.Is(err, failure) {
 		t.Fatalf("creation error: %v", err)
 	}
+
 	if !called {
 		t.Fatal("apply never ran")
 	}
+
 	if _, err := e.nets.Resolve("broken"); !errors.Is(err, vnet.ErrNotFound) {
 		t.Fatalf("failed manifest retained: %v", err)
 	}
+
 	e.ensureNetwork = vnet.Ensure
 	if _, err := e.CreateNetwork(CreateNetworkParams{Name: "missing", VLANs: []types.VLAN{{Parent: "missing999", Tag: 123}}}); err == nil {
 		t.Fatal("missing parent succeeded")
 	}
+
 	if _, err := e.nets.Resolve("missing"); !errors.Is(err, vnet.ErrNotFound) {
 		t.Fatalf("failed manifest retained: %v", err)
 	}

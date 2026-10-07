@@ -27,10 +27,12 @@ func networkFixture(t *testing.T, steps []networkStep) (*Driver, string) {
 	if err := os.MkdirAll(d.vmRunDir(id), 0o700); err != nil {
 		t.Fatal(err)
 	}
+
 	listener, err := net.Listen("unix", d.qmpPath(id))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() { _ = listener.Close() })
 	done := make(chan error, 1)
 	go func() {
@@ -39,7 +41,8 @@ func networkFixture(t *testing.T, steps []networkStep) (*Driver, string) {
 			done <- err
 			return
 		}
-		defer conn.Close()
+
+		defer func() { _ = conn.Close() }()
 		_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 		_, _ = fmt.Fprintln(conn, `{"QMP":{}}`)
 		decoder := json.NewDecoder(conn)
@@ -52,29 +55,35 @@ func networkFixture(t *testing.T, steps []networkStep) (*Driver, string) {
 				done <- err
 				return
 			}
+
 			if command.Execute != step.command {
 				done <- fmt.Errorf("wanted %s got %s", step.command, command.Execute)
 				return
 			}
+
 			if step.check != nil {
 				if err := step.check(command.Arguments); err != nil {
 					done <- err
 					return
 				}
 			}
+
 			if step.reply == "close" {
 				done <- nil
 				return
 			}
+
 			reply := step.reply
 			if reply == "" {
 				reply = `{"return":{}}`
 			}
+
 			if _, err := fmt.Fprintln(conn, reply); err != nil {
 				done <- err
 				return
 			}
 		}
+
 		done <- nil
 	}()
 	t.Cleanup(func() {
@@ -99,12 +108,14 @@ func TestNetworkAttachQMP(t *testing.T) {
 			if args["type"] != "user" || args["id"] != "net1" {
 				return fmt.Errorf("wrong backend: %v", args)
 			}
+
 			return nil
 		}},
 		{command: "device_add", check: func(args map[string]any) error {
 			if args["bus"] != networkBus("net1") || args["netdev"] != "net1" || args["mac"] != InterfaceMAC("fixture", "net1") {
 				return fmt.Errorf("wrong NIC: %v", args)
 			}
+
 			return nil
 		}},
 	})
@@ -113,6 +124,7 @@ func TestNetworkAttachQMP(t *testing.T) {
 	if err != nil || !committed {
 		t.Fatalf("attach: %v committed=%v", err, committed)
 	}
+
 	if _, err := os.Stat(d.networkChangePath(id)); !os.IsNotExist(err) {
 		t.Fatal("journal survived completed attach")
 	}
@@ -140,6 +152,7 @@ func TestNetworkReplacementRollsBackRejectedDevice(t *testing.T) {
 			if args["type"] != "user" {
 				return fmt.Errorf("wrong rollback backend")
 			}
+
 			return nil
 		}},
 		{command: "device_add"},
@@ -150,6 +163,7 @@ func TestNetworkReplacementRollsBackRejectedDevice(t *testing.T) {
 	if err == nil || errors.Is(err, ErrNetworkStateUncertain) {
 		t.Fatalf("wrong rejection: %v", err)
 	}
+
 	if _, err := os.Stat(d.networkChangePath(id)); !os.IsNotExist(err) {
 		t.Fatal("journal survived successful rollback")
 	}
@@ -165,10 +179,12 @@ func TestNetworkUnconfirmedDeleteProtectsReferences(t *testing.T) {
 	if !errors.Is(err, ErrNetworkStateUncertain) || stopped {
 		t.Fatalf("err=%v stopped=%v", err, stopped)
 	}
+
 	refs, err := d.PendingNetworkReferences(id)
 	if err != nil || strings.Join(refs, ",") != "original,replacement" {
 		t.Fatalf("unprotected references: %v %v", refs, err)
 	}
+
 	if err := d.ChangeInterface(context.Background(), id, before, after, func() error { return nil }); !errors.Is(err, ErrNetworkStateUncertain) {
 		t.Fatal("allowed change before recovery")
 	}
@@ -202,11 +218,13 @@ func TestLiveQEMUNetworkHotAdd(t *testing.T) {
 	if err != nil {
 		t.Skip("QEMU unavailable")
 	}
+
 	d := NewDriver(networkTestDir(t))
 	id := "live"
 	if err := os.MkdirAll(d.vmRunDir(id), 0o700); err != nil {
 		t.Fatal(err)
 	}
+
 	args := []string{"-machine", "virt", "-accel", "tcg", "-cpu", "cortex-a72", "-m", "128", "-S", "-display", "none", "-nodefaults", "-qmp", "unix:" + d.qmpPath(id) + ",server=on,wait=off"}
 	args = append(args, networkPortArgs()...)
 	process := exec.Command(qemu, args...)
@@ -214,30 +232,37 @@ func TestLiveQEMUNetworkHotAdd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer log.Close()
+
+	defer func() { _ = log.Close() }()
 	process.Stderr = log
 	if err := process.Start(); err != nil {
 		t.Fatal(err)
 	}
+
 	defer func() { _ = process.Process.Kill(); _ = process.Wait() }()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		if _, err := os.Stat(d.qmpPath(id)); err == nil {
 			break
 		}
+
 		if time.Now().After(deadline) {
 			data, _ := os.ReadFile(log.Name())
 			t.Fatalf("QMP not ready: %s", data)
 		}
+
 		time.Sleep(10 * time.Millisecond)
 	}
+
 	if err := d.ChangeInterface(context.Background(), id, nil, &InterfaceSpec{ID: "net31", Network: NetworkUser}, func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
+
 	client, err := dialQMP(d.qmpPath(id), time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer client.close()
 	data, err := client.executeArguments("qom-list", map[string]string{"path": "/machine/peripheral"})
 	if err != nil || !strings.Contains(string(data), `"name": "net31"`) && !strings.Contains(string(data), `"name":"net31"`) {
@@ -251,6 +276,7 @@ func networkTestDir(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	return dir
 }
@@ -272,12 +298,15 @@ func TestNetworkStopClearsRecoveryJournal(t *testing.T) {
 	if err := os.MkdirAll(d.vmRunDir(id), 0o700); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := os.WriteFile(d.networkChangePath(id), []byte(`{"after":{"Reference":"protected-network"}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := d.ForceStop(id); err != nil {
 		t.Fatal(err)
 	}
+
 	if _, err := os.Stat(d.networkChangePath(id)); !os.IsNotExist(err) {
 		t.Fatal("stopped VM retained recovery journal")
 	}

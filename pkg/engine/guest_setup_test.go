@@ -30,6 +30,7 @@ func TestValidateGuestSetup(t *testing.T) {
 		if c.ok && err != nil {
 			t.Errorf("%s: unexpected error: %v", c.name, err)
 		}
+
 		if !c.ok && err == nil {
 			t.Errorf("%s: expected an error", c.name)
 		}

@@ -26,15 +26,18 @@ func (e *Engine) hostPower(ctx context.Context, force bool, mode string) error {
 	if !force {
 		e.shutdownAllVMs(ctx)
 	}
+
 	log.Ctx(ctx).Info().Bool("force", force).Str("mode", mode).Msg("Powering host")
 	bin, err := exec.LookPath("shutdown")
 	if err != nil {
 		bin = "/sbin/shutdown"
 	}
+
 	out, err := exec.CommandContext(ctx, bin, mode, "now").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("host power command: %w: %s", err, out)
 	}
+
 	return nil
 }
 
@@ -44,11 +47,13 @@ func (e *Engine) shutdownAllVMs(ctx context.Context) {
 		log.Ctx(ctx).Error().Err(err).Msg("Listing VMs before host power operation")
 		return
 	}
+
 	var wg sync.WaitGroup
 	for _, m := range manifests {
 		if e.driver.Status(m.ID).Phase != vm.PhaseRunning {
 			continue
 		}
+
 		wg.Add(1)
 		go func(m *types.VMManifest) {
 			defer wg.Done()
@@ -58,5 +63,6 @@ func (e *Engine) shutdownAllVMs(ctx context.Context) {
 			}
 		}(m)
 	}
+
 	wg.Wait()
 }

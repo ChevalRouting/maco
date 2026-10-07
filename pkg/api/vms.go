@@ -171,6 +171,7 @@ func (s *Server) previewVM(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "preview unavailable")
 		return
 	}
+
 	defer func() { _ = file.Close() }()
 
 	info, err := file.Stat()
@@ -228,6 +229,7 @@ func (s *Server) getGuestSetup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
+
 	writeJSON(w, http.StatusOK, setup)
 }
 

@@ -97,16 +97,16 @@ tasks:
       - docker build --no-cache --file tools/firmware/Dockerfile --output type=local,dest=pkg/vm/firmware/assets .
 
   maco-net-helper:
-    desc: Build and copy the native networking helper
+    desc: Build and copy the native networking helper (darwin only)
     cmds:
-      - mkdir -p {{dir .HELPER_ASSET | shellQuote}}
-      - '{{.CC}} -O2 -Wall -Wextra -Werror pkg/net/datapath/native/helper.c -o {{.HELPER_ASSET | shellQuote}}'
-      - cp {{.HELPER_ASSET | shellQuote}} maco-net-helper
+      - '{{if ne .GOOS "darwin"}}echo "skipping maco-net-helper on {{.GOOS}}"{{else}}mkdir -p {{dir .HELPER_ASSET | shellQuote}}{{end}}'
+      - '{{if eq .GOOS "darwin"}}{{.CC}} -O2 -Wall -Wextra -Werror pkg/net/datapath/native/helper.c -o {{.HELPER_ASSET | shellQuote}}{{else}}true{{end}}'
+      - '{{if eq .GOOS "darwin"}}cp {{.HELPER_ASSET | shellQuote}} maco-net-helper{{else}}true{{end}}'
 
   test-network-helper:
     desc: Run the native networking helper tests with sanitizers
     cmds:
-      - '{{.CC}} -g -Wall -Wextra -Werror -Wno-unused-function -fsanitize=address,undefined tools/l2-validation/batching-test.c -o /private/tmp/maco-batching-test'
+      - '{{.CC}} -g -Wall -Wextra -Werror -Wno-unused-function -fsanitize=address,undefined tools/net-helper-test.c -o /private/tmp/maco-batching-test'
       - /private/tmp/maco-batching-test
 
   test:
@@ -130,10 +130,67 @@ tasks:
     cmds:
       - python3 tools/deploy_test.py
 
-  lint:
-    desc: Run golangci-lint
+  build-style-checker:
+    desc: Build the Go style checker for the execution host
+    method: timestamp
+    vars:
+      CHECK_GOOS:
+        sh: go env GOHOSTOS
+      CHECK_GOARCH:
+        sh: go env GOHOSTARCH
+    env:
+      GOOS: '{{.CHECK_GOOS}}'
+      GOARCH: '{{.CHECK_GOARCH}}'
+    sources:
+      - cmd/stylecheck/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - build/stylecheck
     cmds:
-      - golangci-lint run ./...
+      - mkdir -p build
+      - go build -o build/stylecheck ./cmd/stylecheck
+
+  check-style:
+    desc: Validate repository coding rules before building
+    cmds:
+      - task: build-style-checker
+      - ./build/stylecheck
+
+  lint:
+    desc: Alias for the repository style check
+    cmds:
+      - task: check-style
+
+  lint-go:
+    desc: Lint both Go modules with the shared configuration
+    cmds:
+      - task: build-style-checker
+      - ./build/stylecheck --only go
+
+  lint-mcp:
+    desc: Lint the independent MCP module
+    dir: mcp
+    cmds:
+      - golangci-lint run --config ../.golangci.yml ./...
+
+  lint-style:
+    desc: Check Go syntax rules and repository text
+    cmds:
+      - task: build-style-checker
+      - ./build/stylecheck --only style
+
+  lint-web:
+    desc: Check handwritten UI code
+    dir: web
+    cmds:
+      - npm run lint
+
+  test-lint:
+    desc: Test repository-specific lint rules
+    cmds:
+      - go test ./cmd/stylecheck
+      - npm --prefix web run test:lint
 
   tidy:
     desc: Tidy Go module dependencies

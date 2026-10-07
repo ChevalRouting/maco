@@ -47,9 +47,11 @@ func TestEmbeddedUIServed(t *testing.T) {
 	if index.Code != http.StatusOK {
 		t.Fatalf("index status = %d", index.Code)
 	}
+
 	if ct := index.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
 		t.Fatalf("index content-type = %q", ct)
 	}
+
 	if !strings.Contains(index.Body.String(), "<script") {
 		t.Fatal("index.html did not contain a script tag")
 	}
@@ -69,6 +71,7 @@ func TestEmbeddedUIServed(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("asset %s status = %d", asset, res.Code)
 	}
+
 	if ct := res.Header().Get("Content-Type"); !strings.Contains(ct, "javascript") {
 		t.Fatalf("asset %s content-type = %q", asset, ct)
 	}
@@ -77,6 +80,7 @@ func TestEmbeddedUIServed(t *testing.T) {
 	if miss.Code != http.StatusNotFound {
 		t.Fatalf("unknown API route status = %d", miss.Code)
 	}
+
 	if !strings.Contains(miss.Body.String(), "API route not found") {
 		t.Fatalf("unknown API body = %q", miss.Body.String())
 	}

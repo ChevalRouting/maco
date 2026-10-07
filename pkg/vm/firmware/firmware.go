@@ -1,3 +1,5 @@
+//go:build darwin
+
 package firmware
 
 import (
@@ -68,7 +70,7 @@ func extract(dst string, compressed []byte) error {
 
 	n, err := io.Copy(f, bzip2.NewReader(bytes.NewReader(compressed)))
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		_ = os.Remove(tmp)
 		return err
 	}

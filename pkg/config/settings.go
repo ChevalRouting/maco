@@ -19,6 +19,7 @@ func LoadSettings(p *Paths) (Settings, error) {
 	if errors.Is(err, os.ErrNotExist) {
 		return Settings{}, nil
 	}
+
 	if err != nil {
 		return Settings{}, err
 	}
@@ -27,5 +28,6 @@ func LoadSettings(p *Paths) (Settings, error) {
 	if err := yaml.Unmarshal(data, &settings); err != nil {
 		return Settings{}, err
 	}
+
 	return settings, nil
 }

@@ -92,7 +92,7 @@ defaults to `/Library/Application Support/maco` (override with `--data-dir` or
 |------|---------|
 | [building.md](building.md) | building the binary on macOS and the prerequisites |
 | [testing.md](testing.md) | test layout and conventions |
-| [code-style.md](code-style.md) | coding rules gofmt does not enforce |
+| [code-style.md](code-style.md) | coding rules and validation before builds |
 
 ### Internal
 

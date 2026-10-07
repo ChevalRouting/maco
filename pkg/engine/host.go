@@ -2,8 +2,6 @@ package engine
 
 import (
 	"runtime"
-
-	"golang.org/x/sys/unix"
 )
 
 type HostInfo struct {
@@ -12,10 +10,5 @@ type HostInfo struct {
 }
 
 func (e *Engine) HostInfo() HostInfo {
-	info := HostInfo{CPUs: runtime.NumCPU()}
-	if mem, err := unix.SysctlUint64("hw.memsize"); err == nil {
-		info.MemoryBytes = mem
-	}
-
-	return info
+	return HostInfo{CPUs: runtime.NumCPU(), MemoryBytes: hostMemoryBytes()}
 }

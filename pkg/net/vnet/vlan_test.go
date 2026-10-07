@@ -28,6 +28,7 @@ func TestResolveVLANReuseAndOwnership(t *testing.T) {
 					if parent != "en10" || tag != 123 {
 						t.Fatal("wrong lookup")
 					}
+
 					return tc.matching, nil
 				},
 				create: func(string) (string, error) { creates++; return "vlan9", nil },
@@ -35,6 +36,7 @@ func TestResolveVLANReuseAndOwnership(t *testing.T) {
 					if tc.configureFails {
 						return errors.New("File exists")
 					}
+
 					return nil
 				},
 				destroy: func(string) error { destroys++; return nil },
@@ -72,6 +74,7 @@ func TestResolveVLANConcurrentCreation(t *testing.T) {
 			if finds == 1 {
 				return "", nil
 			}
+
 			return "vlan7", nil
 		},
 		create:    func(string) (string, error) { return "vlan9", nil },

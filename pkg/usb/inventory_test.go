@@ -11,18 +11,22 @@ func TestConnectionIdentity(t *testing.T) {
 	if first.ID == second.ID {
 		t.Fatal("identical products at different ports must have different IDs")
 	}
+
 	replacement := first
 	replacement.Session = "43"
 	identify(&replacement)
 	if first.ID == replacement.ID {
 		t.Fatal("replacement at the same address must invalidate old selection")
 	}
+
 	if _, err := Resolve([]Device{replacement}, first.ID, first.Fingerprint); err == nil {
 		t.Fatal("stale selection accepted")
 	}
+
 	if _, err := Resolve([]Device{first}, first.ID, second.Fingerprint); err == nil {
 		t.Fatal("wrong fingerprint accepted")
 	}
+
 	if _, err := Resolve([]Device{first}, first.ID, first.Fingerprint); err != nil {
 		t.Fatal(err)
 	}
@@ -34,6 +38,7 @@ func TestInventoryEligibility(t *testing.T) {
 	if _, err := Resolve([]Device{hub}, hub.ID, hub.Fingerprint); err == nil {
 		t.Fatal("hub was eligible")
 	}
+
 	unknown := hub
 	unknown.Classes = []string{}
 	unknown.Port = ""
@@ -41,6 +46,7 @@ func TestInventoryEligibility(t *testing.T) {
 	if unknown.State != "unsupported" {
 		t.Fatal("device without a location was eligible")
 	}
+
 	if got := cleanDescriptor("A\tB\n\x00"); got != "AB" {
 		t.Fatalf("control characters remained: %q", got)
 	}
@@ -55,6 +61,7 @@ func TestCaptureCanHideSerialDescriptor(t *testing.T) {
 	if err := VerifyConnection([]Device{captured}, selected); err != nil {
 		t.Fatalf("same physical session rejected when QEMU holds device: %v", err)
 	}
+
 	captured.Session = "43"
 	identify(&captured)
 	if err := VerifyConnection([]Device{captured}, selected); err == nil {
@@ -68,6 +75,7 @@ func TestBusZeroRequiresUniqueQEMUSelector(t *testing.T) {
 	if _, err := Resolve([]Device{selected}, selected.ID, selected.Fingerprint); err != nil {
 		t.Fatalf("valid bus zero rejected: %v", err)
 	}
+
 	other := selected
 	other.Bus = 1
 	other.Session = "43"
@@ -76,9 +84,11 @@ func TestBusZeroRequiresUniqueQEMUSelector(t *testing.T) {
 	if _, err := Resolve(devices, selected.ID, selected.Fingerprint); err == nil {
 		t.Fatal("ambiguous wildcard bus accepted")
 	}
+
 	if err := VerifyConnection(devices, selected); err == nil {
 		t.Fatal("ambiguous post-capture selector accepted")
 	}
+
 	if _, err := Resolve(devices, other.ID, other.Fingerprint); err != nil {
 		t.Fatalf("exact nonzero bus rejected: %v", err)
 	}

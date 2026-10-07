@@ -17,6 +17,7 @@ func (s *Server) creatorSSHKeys(r *http.Request) ([]string, error) {
 	if claims == nil {
 		return nil, nil
 	}
+
 	return s.engine.SSHKeyValues(r.Context(), claims.UserID)
 }
 

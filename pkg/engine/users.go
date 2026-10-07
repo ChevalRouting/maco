@@ -18,6 +18,7 @@ func (e *Engine) Authenticate(ctx context.Context, username, password string) (t
 	if err != nil {
 		return types.User{}, err
 	}
+
 	u, ok, err := database.GetUserByUsername(ctx, username)
 	if err != nil {
 		return types.User{}, err
@@ -44,6 +45,7 @@ func (e *Engine) AddUser(ctx context.Context, username, password, role string) e
 	if err != nil {
 		return err
 	}
+
 	return database.CreateUser(ctx, types.User{
 		ID:           uuid.NewString(),
 		Username:     username,
@@ -58,6 +60,7 @@ func (e *Engine) ListUsers(ctx context.Context) ([]types.User, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return database.ListUsers(ctx)
 }
 
@@ -71,6 +74,7 @@ func (e *Engine) SetPassword(ctx context.Context, username, password string) err
 	if err != nil {
 		return err
 	}
+
 	return database.UpdateUserPassword(ctx, username, hash)
 }
 
@@ -79,6 +83,7 @@ func (e *Engine) DeleteUser(ctx context.Context, username string) error {
 	if err != nil {
 		return err
 	}
+
 	return database.DeleteUser(ctx, username)
 }
 

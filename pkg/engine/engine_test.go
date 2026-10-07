@@ -51,6 +51,7 @@ func TestGuestNetworkConfig(t *testing.T) {
 	if !strings.Contains(config, "macaddress: "+vm.MAC("guest")) || !strings.Contains(config, "fd00::1/64") || !strings.Contains(config, "dhcp4: false") {
 		t.Fatal(config)
 	}
+
 	if !strings.Contains(config, "via: 192.0.2.254") || !strings.Contains(config, "- 1.1.1.1") {
 		t.Fatal(config)
 	}
@@ -70,13 +71,16 @@ func TestAutostartTargets(t *testing.T) {
 	if err := e.vms.Save(auto); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := e.vms.Save(manual); err != nil {
 		t.Fatal(err)
 	}
+
 	targets, err := e.AutostartTargets()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(targets) != 1 || targets[0] != auto.ID {
 		t.Fatalf("expected only the autostart VM, got %v", targets)
 	}

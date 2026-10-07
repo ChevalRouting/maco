@@ -88,14 +88,18 @@ func (e *Engine) CreateNetwork(params CreateNetworkParams) (*types.NetworkManife
 		if loadErr != nil {
 			return nil, fmt.Errorf("apply network: %w (reload for rollback: %v)", err, loadErr)
 		}
+
 		if cleanupErr := vnet.Destroy(current); cleanupErr != nil {
 			return nil, fmt.Errorf("apply network: %w (rollback failed; retained manifest %s: %v)", err, n.ID, cleanupErr)
 		}
+
 		if cleanupErr := e.nets.Delete(n.ID); cleanupErr != nil {
 			return nil, fmt.Errorf("apply network: %w (remove failed manifest: %v)", err, cleanupErr)
 		}
+
 		return nil, fmt.Errorf("apply network: %w", err)
 	}
+
 	return n, nil
 }
 
@@ -117,6 +121,7 @@ func (e *Engine) DestroyNetwork(ref string) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = lock.Close() }()
 
 	n, err := e.nets.Resolve(ref)
@@ -135,10 +140,12 @@ func (e *Engine) DestroyNetwork(ref string) error {
 			if err != nil {
 				return fmt.Errorf("inspect pending VM network change: %w", err)
 			}
+
 			if slices.Contains(refs, n.ID) || slices.Contains(refs, n.Name) {
 				return fmt.Errorf("network %s is involved in an unfinished change on VM %s; stop it first", n.Name, m.Name)
 			}
 		}
+
 		for _, nic := range m.EffectiveInterfaces() {
 			if (nic.Network == n.ID || nic.Network == n.Name) && e.driver.Status(m.ID).Phase == vm.PhaseRunning {
 				return fmt.Errorf("network %s is used by running VM %s; stop it first", n.Name, m.Name)
@@ -175,32 +182,40 @@ func (e *Engine) UpdateNetwork(ref string, params CreateNetworkParams) (*types.N
 	if err != nil {
 		return nil, err
 	}
+
 	n, err := func() (*types.NetworkManifest, error) {
 		n, err := e.nets.Resolve(ref)
 		if err != nil {
 			return nil, err
 		}
+
 		if params.Name != n.Name || types.NetworkMode(params.Mode) != n.Mode {
 			return nil, fmt.Errorf("network name and mode must not change")
 		}
+
 		if params.Device != "" && params.Device != n.Device {
 			return nil, fmt.Errorf("applied device must not change")
 		}
+
 		manifests, err := e.vms.List()
 		if err != nil {
 			return nil, err
 		}
+
 		for _, m := range manifests {
 			if e.driver.Status(m.ID).Phase != vm.PhaseRunning {
 				continue
 			}
+
 			refs, err := e.driver.PendingNetworkReferences(m.ID)
 			if err != nil {
 				return nil, fmt.Errorf("inspect pending VM network change: %w", err)
 			}
+
 			if slices.Contains(refs, n.ID) || slices.Contains(refs, n.Name) {
 				return nil, fmt.Errorf("network %s is involved in an unfinished change on VM %s; stop it first", n.Name, m.Name)
 			}
+
 			for _, nic := range m.EffectiveInterfaces() {
 				if nic.Network == n.ID || nic.Network == n.Name {
 					return nil, fmt.Errorf("network %s is used by running VM %s; stop it first", n.Name, m.Name)
@@ -212,33 +227,40 @@ func (e *Engine) UpdateNetwork(ref string, params CreateNetworkParams) (*types.N
 			if !n.Owned {
 				return nil, fmt.Errorf("cannot retag a borrowed VLAN interface")
 			}
+
 			networks, err := e.nets.List()
 			if err != nil {
 				return nil, err
 			}
+
 			for _, other := range networks {
 				if other.ID != n.ID && (slices.Contains(other.Members, n.Device) || slices.Contains(other.AppliedMembers, n.Device)) {
 					return nil, fmt.Errorf("VLAN %s is attached to bridge %s; remove it from the bridge first", n.Name, other.Name)
 				}
 			}
 		}
+
 		n.Address, n.Uplink, n.Parent, n.Tag = params.Address, params.Uplink, params.Parent, params.Tag
 		n.Members = slices.Clone(params.Members)
 		n.VLANs = make([]types.VLAN, len(params.VLANs))
 		for i, vlan := range params.VLANs {
 			n.VLANs[i] = types.VLAN{Parent: vlan.Parent, Tag: vlan.Tag}
 		}
+
 		if err := e.nets.Save(n); err != nil {
 			return nil, err
 		}
+
 		return n, nil
 	}()
 	_ = lock.Close()
 	if err != nil {
 		return nil, err
 	}
+
 	if err := e.ensureNetwork(e.nets, n, false); err != nil {
 		return nil, fmt.Errorf("apply network (configuration saved; retry to reconcile): %w", err)
 	}
+
 	return n, nil
 }

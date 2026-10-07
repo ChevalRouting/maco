@@ -36,28 +36,34 @@ func (g *loginGuard) acquire(r *http.Request) (func(), bool) {
 		g.clients = make(map[string]*loginClient)
 		g.slots = make(chan struct{}, 4)
 	}
+
 	now := time.Now()
 	for ip, client := range g.clients {
 		if now.Sub(client.seen) > 10*time.Minute {
 			delete(g.clients, ip)
 		}
 	}
+
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		ip = r.RemoteAddr
 	}
+
 	client := g.clients[ip]
 	if client == nil {
 		if len(g.clients) >= 4096 {
 			return nil, false
 		}
+
 		client = &loginClient{limiter: rate.NewLimiter(rate.Every(12*time.Second), 5)}
 		g.clients[ip] = client
 	}
+
 	client.seen = now
 	if !g.global.Allow() || !client.limiter.Allow() {
 		return nil, false
 	}
+
 	select {
 	case g.slots <- struct{}{}:
 		return func() { <-g.slots }, true
@@ -70,6 +76,7 @@ func (s *Server) authenticate(ctx context.Context, token string) (*auth.Claims, 
 	if strings.HasPrefix(token, engine.APIKeyPrefix) {
 		return s.authenticateAPIKey(ctx, token)
 	}
+
 	return s.authenticateToken(ctx, token)
 }
 
@@ -78,6 +85,7 @@ func (s *Server) authenticateAPIKey(ctx context.Context, token string) (*auth.Cl
 	if err != nil {
 		return nil, err
 	}
+
 	return &auth.Claims{
 		RegisteredClaims: jwt.RegisteredClaims{Subject: user.Username},
 		UserID:           user.ID,
@@ -90,20 +98,25 @@ func (s *Server) authenticateToken(ctx context.Context, token string) (*auth.Cla
 	if err != nil {
 		return nil, err
 	}
+
 	if claims.UserID == "" || claims.Credentials == "" {
 		return nil, fmt.Errorf("session must be renewed")
 	}
+
 	database, err := s.engine.OpenDB(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	user, found, err := database.GetUserByUsername(ctx, claims.Subject)
 	if err != nil {
 		return nil, err
 	}
+
 	if !found || user.ID != claims.UserID || subtle.ConstantTimeCompare([]byte(claims.Credentials), []byte(auth.CredentialVersion(user))) != 1 {
 		return nil, fmt.Errorf("session revoked")
 	}
+
 	claims.Role = user.Role
 	return claims, nil
 }

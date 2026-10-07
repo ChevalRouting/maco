@@ -250,6 +250,7 @@ func newVMBackupsCommand() *cobra.Command {
 			for _, backup := range backups {
 				fmt.Printf("%s\t%d bytes\tlive=%t\tconsistent=%t\n", backup.Timestamp, backup.SizeBytes, backup.Live, backup.Consistent)
 			}
+
 			return nil
 		},
 	}
@@ -327,6 +328,7 @@ func newVMSnapshotCommand() *cobra.Command {
 			for _, snapshot := range snapshots {
 				fmt.Printf("%s\tram=%t\t%s\n", snapshot.Tag, snapshot.HasRAM, snapshot.CreatedAt)
 			}
+
 			return nil
 		},
 	}
@@ -378,21 +380,26 @@ func newVMGuestAgentCommand() *cobra.Command {
 			if info.Hostname != "" {
 				fmt.Printf("hostname\t%s\n", info.Hostname)
 			}
+
 			if info.OS != nil {
 				fmt.Printf("os\t%s\n", info.OS.PrettyName)
 				fmt.Printf("kernel\t%s %s\n", info.OS.KernelRelease, info.OS.Machine)
 			}
+
 			for _, nic := range info.Interfaces {
 				addresses := make([]string, 0, len(nic.IPAddresses))
 				for _, addr := range nic.IPAddresses {
 					addresses = append(addresses, fmt.Sprintf("%s/%d", addr.Address, addr.Prefix))
 				}
+
 				fmt.Printf("iface %s\t%s\n", nic.Name, strings.Join(addresses, " "))
 			}
+
 			for _, fs := range info.Filesystems {
 				fmt.Printf("fs %s\t%s\t%s used of %s\n", fs.Mountpoint, fs.Type,
 					humanBytes(fs.UsedBytes), humanBytes(fs.TotalBytes))
 			}
+
 			return nil
 		},
 	}
@@ -403,11 +410,13 @@ func humanBytes(n int64) string {
 	if n < unit {
 		return fmt.Sprintf("%d B", n)
 	}
+
 	div, exp := int64(unit), 0
 	for size := n / unit; size >= unit; size /= unit {
 		div *= unit
 		exp++
 	}
+
 	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
 }
 

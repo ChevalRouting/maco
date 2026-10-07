@@ -31,6 +31,7 @@ func (s *Server) listMedia(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, err.Error())
 		return
 	}
+
 	writeJSON(w, 200, m)
 }
 
@@ -53,11 +54,13 @@ func (s *Server) createMedia(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, err.Error())
 		return
 	}
+
 	m, err := s.engine.CreateMedia(r.Context(), p.Name, p.SizeGiB, nil)
 	if err != nil {
 		writeError(w, 400, err.Error())
 		return
 	}
+
 	writeJSON(w, 201, m)
 }
 
@@ -84,23 +87,27 @@ func (s *Server) uploadISO(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 413, "ISO exceeds the 10 GiB upload limit")
 		return
 	}
+
 	if r.ContentLength > 0 {
 		free, err := s.engine.MediaFreeBytes()
 		if err != nil {
 			writeError(w, 500, err.Error())
 			return
 		}
+
 		if uint64(r.ContentLength) > free {
 			writeError(w, 507, "not enough free disk space for this ISO")
 			return
 		}
 	}
+
 	r.Body = http.MaxBytesReader(w, r.Body, maxISOUpload)
 	reader, err := r.MultipartReader()
 	if err != nil {
 		writeError(w, 400, "expected multipart ISO upload")
 		return
 	}
+
 	part, err := reader.NextPart()
 	log.Info().Msgf("%+v %+v", part, err)
 	if err != nil || part.FormName() != "file" || !strings.HasSuffix(strings.ToLower(part.FileName()), ".iso") {
@@ -108,12 +115,14 @@ func (s *Server) uploadISO(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "select an ISO file")
 		return
 	}
-	defer part.Close()
+
+	defer func() { _ = part.Close() }()
 	m, err := s.engine.CreateMedia(r.Context(), part.FileName(), 0, part)
 	if err != nil {
 		writeError(w, 400, err.Error())
 		return
 	}
+
 	writeJSON(w, 201, m)
 }
 
@@ -140,34 +149,40 @@ func (s *Server) uploadImage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 413, "image exceeds the 64 GiB upload limit")
 		return
 	}
+
 	if r.ContentLength > 0 {
 		free, err := s.engine.MediaFreeBytes()
 		if err != nil {
 			writeError(w, 500, err.Error())
 			return
 		}
+
 		if uint64(r.ContentLength) > free {
 			writeError(w, 507, "not enough free disk space for this image")
 			return
 		}
 	}
+
 	r.Body = http.MaxBytesReader(w, r.Body, maxImageUpload)
 	reader, err := r.MultipartReader()
 	if err != nil {
 		writeError(w, 400, "expected multipart image upload")
 		return
 	}
+
 	part, err := reader.NextPart()
 	if err != nil || part.FormName() != "file" || !isDiskImage(part.FileName()) {
 		writeError(w, 400, "select a .qcow2 or .img disk image")
 		return
 	}
-	defer part.Close()
+
+	defer func() { _ = part.Close() }()
 	m, err := s.engine.UploadImage(r.Context(), part.FileName(), part)
 	if err != nil {
 		writeError(w, 400, err.Error())
 		return
 	}
+
 	writeJSON(w, 201, m)
 }
 
@@ -193,6 +208,7 @@ func (s *Server) deleteMedia(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, err.Error())
 		return
 	}
+
 	w.WriteHeader(204)
 }
 
@@ -216,9 +232,11 @@ func (s *Server) updateMedia(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, err.Error())
 		return
 	}
+
 	if err := s.engine.UpdateMediaContext(r.Context(), chi.URLParam(r, "id"), p); err != nil {
 		writeError(w, 400, err.Error())
 		return
 	}
+
 	writeJSON(w, 200, p)
 }

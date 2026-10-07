@@ -27,6 +27,7 @@ func (h *resourceHub) broadcast(resources ...string) {
 			case <-client:
 			default:
 			}
+
 			select {
 			case client <- []string{"all"}:
 			default:
@@ -41,6 +42,7 @@ func (s *Server) subscribeResources() (<-chan []string, func()) {
 	if h.clients == nil {
 		h.clients = make(map[chan []string]struct{})
 	}
+
 	client := make(chan []string, 32)
 	h.clients[client] = struct{}{}
 	if h.cancel == nil {
@@ -48,6 +50,7 @@ func (s *Server) subscribeResources() (<-chan []string, func()) {
 		h.cancel = cancel
 		go s.observeResources(ctx)
 	}
+
 	h.mu.Unlock()
 	return client, func() {
 		h.mu.Lock()
@@ -74,6 +77,7 @@ func (s *Server) observeResources(ctx context.Context) {
 					s.events.broadcast("guest-agent:" + view.Manifest.ID)
 				}
 			}
+
 			return views, err
 		},
 		"networks":   func(context.Context) (any, error) { return s.engine.ListNetworks() },
@@ -89,6 +93,7 @@ func (s *Server) observeResources(ctx context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
+
 			readCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			value, err := load(readCtx)
 			cancel()
@@ -96,6 +101,7 @@ func (s *Server) observeResources(ctx context.Context) {
 			if err != nil {
 				message = err.Error()
 			}
+
 			data, marshalErr := json.Marshal(struct {
 				Value any
 				Error string
@@ -103,12 +109,14 @@ func (s *Server) observeResources(ctx context.Context) {
 			if marshalErr != nil {
 				continue
 			}
+
 			hash := sha256.Sum256(data)
 			if old, ok := previous[domain]; !ok || old != hash {
 				previous[domain] = hash
 				s.events.broadcast(domain)
 			}
 		}
+
 		select {
 		case <-ctx.Done():
 			return

@@ -14,6 +14,7 @@ func TestInstall(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected an error when the helper is not embedded")
 		}
+
 		return
 	}
 

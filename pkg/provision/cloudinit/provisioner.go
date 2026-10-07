@@ -19,6 +19,7 @@ func (Provisioner) Render(p provision.Params) ([]provision.File, error) {
 	if p.NetworkConfig != "" {
 		files = append(files, provision.File{Name: "network-config", Content: p.NetworkConfig})
 	}
+
 	return files, nil
 }
 
@@ -27,6 +28,7 @@ func (Provisioner) Deliver(dir string, files []provision.File) (provision.Delive
 	if err := BuildSeedFiles(isoPath, files); err != nil {
 		return provision.Delivery{}, err
 	}
+
 	return provision.Delivery{SeedPath: isoPath}, nil
 }
 
@@ -39,6 +41,7 @@ func BuildSeedFiles(isoPath string, files []provision.File) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = os.RemoveAll(staging) }()
 
 	for _, file := range files {

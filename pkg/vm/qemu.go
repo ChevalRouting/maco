@@ -36,6 +36,7 @@ type InterfaceSpec struct {
 	Uplink    string
 	Bridge    string
 	Socket    string
+	Tap       string
 	Group     string
 }
 
@@ -54,12 +55,10 @@ type Spec struct {
 	Firmware     string
 }
 
-const QEMUBinary = "qemu-system-aarch64"
-
 func LocateQEMU() (string, error) {
 	path, err := exec.LookPath(QEMUBinary)
 	if err != nil {
-		return "", fmt.Errorf("%s not found in PATH (try `brew install qemu`): %w", QEMUBinary, err)
+		return "", fmt.Errorf("%s not found in PATH: %w", QEMUBinary, err)
 	}
 
 	return path, nil
@@ -68,10 +67,6 @@ func LocateQEMU() (string, error) {
 func (s *Spec) buildArgs(runDir string) ([]string, error) {
 	if s.Firmware == "" {
 		return nil, fmt.Errorf("spec %s: firmware is required", s.ID)
-	}
-
-	if s.DiskPath == "" {
-		return nil, fmt.Errorf("spec %s: disk path is required", s.ID)
 	}
 
 	cpus := s.CPUs
@@ -84,17 +79,20 @@ func (s *Spec) buildArgs(runDir string) ([]string, error) {
 		mem = 1024
 	}
 
-	args := []string{
-		"-name", s.Name,
-		"-machine", "virt,highmem=on,gic-version=3",
-		"-accel", "hvf",
+	args := []string{"-name", s.Name}
+	args = append(args, machineArgs(s.Firmware)...)
+	args = append(args,
 		"-cpu", "host",
 		"-smp", strconv.Itoa(cpus),
 		"-m", strconv.Itoa(mem),
-		"-drive", "if=pflash,format=raw,readonly=on,file=" + s.Firmware,
 		"-device", "virtio-scsi-pci,id=scsi",
-		"-drive", "if=none,id=bootdisk,format=qcow2,file=" + s.DiskPath,
-		"-device", "scsi-hd,bus=scsi.0,drive=bootdisk" + s.bootIndex("disk"),
+	)
+
+	if s.DiskPath != "" {
+		args = append(args,
+			"-drive", "if=none,id=bootdisk,format=qcow2,file="+s.DiskPath,
+			"-device", "scsi-hd,bus=scsi.0,drive=bootdisk"+s.bootIndex("disk"),
+		)
 	}
 
 	if s.SeedPath != "" {
@@ -112,6 +110,7 @@ func (s *Spec) buildArgs(runDir string) ([]string, error) {
 		node := diskNodeName(iso.ID)
 		args = append(args, "-drive", "if=none,id="+node+",format=raw,readonly=on,file="+iso.Path, "-device", "scsi-cd,bus=scsi.0,drive="+node+s.bootIndex("iso:"+iso.ID))
 	}
+
 	for _, disk := range s.Disks {
 		deviceID := diskNodeName(disk.ID)
 		args = append(args,
@@ -125,10 +124,12 @@ func (s *Spec) buildArgs(runDir string) ([]string, error) {
 		if nic.MAC == "" {
 			nic.MAC = InterfaceMAC(s.ID, nic.ID)
 		}
+
 		netArgs, err := networkArgs(nic)
 		if err != nil {
 			return nil, err
 		}
+
 		args = append(args, netArgs...)
 	}
 
@@ -163,6 +164,7 @@ func SetMACPrefix(base string) error {
 	if err != nil {
 		return err
 	}
+
 	macPrefix = normalized
 	return nil
 }
@@ -172,21 +174,26 @@ func NormalizeMACPrefix(base string) (string, error) {
 	if base == "" {
 		return DefaultMACPrefix, nil
 	}
+
 	parts := strings.Split(base, ":")
 	if len(parts) < 3 {
 		return "", fmt.Errorf("base MAC %q needs at least three octets", base)
 	}
+
 	octets := [3]byte{}
 	for i := 0; i < 3; i++ {
 		v, err := strconv.ParseUint(parts[i], 16, 8)
 		if err != nil {
 			return "", fmt.Errorf("base MAC %q has an invalid octet %q", base, parts[i])
 		}
+
 		octets[i] = byte(v)
 	}
+
 	if octets[0]&1 != 0 {
 		return "", fmt.Errorf("base MAC %q must be unicast (an even first octet)", base)
 	}
+
 	return fmt.Sprintf("%02x:%02x:%02x", octets[0], octets[1], octets[2]), nil
 }
 
@@ -209,16 +216,19 @@ func (s *Spec) bootIndex(id string) string {
 		for _, iso := range s.ISOs {
 			order = append(order, "iso:"+iso.ID)
 		}
+
 		order = append(order, "disk")
 		for _, disk := range s.Disks {
 			order = append(order, "disk:"+disk.ID)
 		}
 	}
+
 	for i, item := range order {
 		if item == id {
 			return fmt.Sprintf(",bootindex=%d", i+1)
 		}
 	}
+
 	return ""
 }
 
@@ -231,14 +241,12 @@ func networkArgs(nic InterfaceSpec) ([]string, error) {
 			"-device", "virtio-net-pci,netdev=net0",
 		)
 	case NetworkBridge:
-		if nic.Bridge == "" || nic.Socket == "" {
-			return nil, fmt.Errorf("spec %s: bridge network requires a bridge and helper socket", nic.ID)
+		bridged, err := bridgedNetworkArgs(nic)
+		if err != nil {
+			return nil, err
 		}
 
-		args = append(args,
-			"-netdev", "stream,id=net0,server=off,addr.type=unix,addr.path="+nic.Socket,
-			"-device", "virtio-net-pci,netdev=net0,csum=off,guest_csum=off,gso=off,guest_tso4=off,guest_tso6=off,guest_ecn=off",
-		)
+		args = append(args, bridged...)
 	case NetworkSwitch:
 		if nic.Group == "" {
 			return nil, fmt.Errorf("spec %s: switch nic.Network requires a multicast group", nic.ID)
@@ -267,12 +275,14 @@ func networkArgs(nic InterfaceSpec) ([]string, error) {
 			args[index] += ",id=" + nic.ID + ",mac=" + nic.MAC + ",bus=" + networkBus(nic.ID) + ",addr=0,disable-legacy=on"
 		}
 	}
+
 	return args, nil
 }
 func InterfaceMAC(vmID, id string) string {
 	if id == "net0" {
 		return MAC(vmID)
 	}
+
 	return MAC(vmID + ":" + id)
 }
 
@@ -284,7 +294,9 @@ func networkPortArgs() []string {
 		if i%8 == 0 {
 			port += ",multifunction=on"
 		}
+
 		args = append(args, "-device", port)
 	}
+
 	return args
 }

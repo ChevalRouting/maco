@@ -35,6 +35,7 @@ func (d *Driver) AttachDisk(id, diskID, path string) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = client.close() }()
 	if err := client.conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 		return err
@@ -70,6 +71,7 @@ func (d *Driver) GrowDisk(id, path string, size int) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = client.close() }()
 	if err := client.conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 		return err

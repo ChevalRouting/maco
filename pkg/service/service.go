@@ -1,3 +1,5 @@
+//go:build darwin
+
 package service
 
 import (
@@ -217,7 +219,7 @@ func (m *Manager) Status(ctx context.Context) (string, error) {
 	for _, label := range []string{RedisLabel, DaemonLabel} {
 		cmd := exec.CommandContext(ctx, "launchctl", "print", "system/"+label)
 		out, _ := cmd.CombinedOutput()
-		fmt.Fprintf(&buf, "=== %s ===\n%s\n", label, out)
+		_, _ = fmt.Fprintf(&buf, "=== %s ===\n%s\n", label, out)
 	}
 
 	return buf.String(), nil

@@ -31,11 +31,13 @@ func (s *Server) waitJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "job queue unavailable")
 		return
 	}
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		writeError(w, http.StatusInternalServerError, "streaming unsupported")
 		return
 	}
+
 	id := chi.URLParam(r, "id")
 
 	ctx, cancel := context.WithTimeout(r.Context(), jobWaitTimeout)
@@ -46,6 +48,7 @@ func (s *Server) waitJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "job stream unavailable")
 		return
 	}
+
 	defer func() { _ = subscription.Close() }()
 
 	current, err := s.jobs.Get(ctx, id)
@@ -64,6 +67,7 @@ func (s *Server) waitJob(w http.ResponseWriter, r *http.Request) {
 		_ = writeJobWaitEvent(w, flusher, "done", current)
 		return
 	}
+
 	if err := writeJobWaitEvent(w, flusher, "update", current); err != nil {
 		return
 	}
@@ -79,23 +83,28 @@ func (s *Server) waitJob(w http.ResponseWriter, r *http.Request) {
 			if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil {
 				return
 			}
+
 			flusher.Flush()
 		case msg, ok := <-events:
 			if !ok {
 				return
 			}
+
 			var job jobs.Job
 			if err := json.Unmarshal([]byte(msg.Payload), &job); err != nil || job.ID != id {
 				continue
 			}
+
 			job.Label = jobs.Label(job.Action)
 			if terminalState(job.State) {
 				if full, err := s.jobs.Get(ctx, id); err == nil {
 					job = *full
 				}
+
 				_ = writeJobWaitEvent(w, flusher, "done", &job)
 				return
 			}
+
 			if err := writeJobWaitEvent(w, flusher, "update", &job); err != nil {
 				return
 			}
@@ -112,9 +121,11 @@ func writeJobWaitEvent(w http.ResponseWriter, flusher http.Flusher, event string
 	if err != nil {
 		return err
 	}
+
 	if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data); err != nil {
 		return err
 	}
+
 	flusher.Flush()
 	return nil
 }

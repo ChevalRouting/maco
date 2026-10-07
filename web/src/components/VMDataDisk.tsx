@@ -5,12 +5,15 @@ import { HardDrive } from 'lucide-react'
 import {
   growDisk,
   removeDisk,
+  wipeDisk,
+  replaceBootDisk,
   updateHardware,
   type VMDisk,
   type VMView,
   type Job,
 } from '../api'
 import { bootOrder } from '../bootOrder'
+import { ReplaceBootDiskDialog } from './ReplaceBootDiskDialog'
 import { useRowAction } from '../hooks/useRowAction'
 
 interface VMDataDiskProps {
@@ -24,6 +27,8 @@ export function VMDataDisk({ vm, disk, primary, run }: VMDataDiskProps) {
   const [size, setSize] = useState(disk.size_gib + 1)
   const [growing, setGrowing] = useState(false)
   const [confirm, setConfirm] = useState(false)
+  const [wiping, setWiping] = useState(false)
+  const [replacing, setReplacing] = useState(false)
   const action = useRowAction(vm.manifest.id, vm.manifest.name, 'vm', run)
   const canGrow = Number.isSafeInteger(size) && size > disk.size_gib
 
@@ -48,6 +53,15 @@ export function VMDataDisk({ vm, disk, primary, run }: VMDataDiskProps) {
       removeDisk(vm.manifest.id, disk.id),
     )
     if (job) setConfirm(false)
+  }
+
+  async function wipe() {
+    if (action.busy || vm.phase === 'running') return
+
+    const job = await action.execute('vm.disk.wipe', () =>
+      wipeDisk(vm.manifest.id, disk.id),
+    )
+    if (job) setWiping(false)
   }
 
   return (
@@ -79,7 +93,7 @@ export function VMDataDisk({ vm, disk, primary, run }: VMDataDiskProps) {
           QCOW2 · {primary ? 'VirtIO' : 'SCSI'}
         </p>
         <div className="mt-auto pt-2">
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             <Button
               size="sm"
               disabled={action.busy}
@@ -91,24 +105,69 @@ export function VMDataDisk({ vm, disk, primary, run }: VMDataDiskProps) {
             >
               Increase Capacity…
             </Button>
-            {!primary && (
+            {primary && (
               <Button
                 size="sm"
                 variant="outline"
                 disabled={action.busy || vm.phase === 'running'}
-                onClick={() => setConfirm(true)}
+                onClick={() => setReplacing(true)}
+                aria-haspopup="dialog"
                 title={
                   vm.phase === 'running'
-                    ? 'Stop the VM before removing this disk'
-                    : 'Remove disk'
+                    ? 'Stop the VM before replacing its disk'
+                    : 'Replace the boot disk with a fresh disk image'
                 }
               >
-                Delete…
+                Replace from Image…
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={action.busy || vm.phase === 'running'}
+              onClick={() => setWiping(true)}
+              aria-haspopup="dialog"
+              title={
+                vm.phase === 'running'
+                  ? 'Stop the VM before wiping this disk'
+                  : 'Erase all data but keep the disk'
+              }
+            >
+              Wipe…
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={action.busy || vm.phase === 'running'}
+              onClick={() => setConfirm(true)}
+              title={
+                vm.phase === 'running'
+                  ? 'Stop the VM before removing this disk'
+                  : 'Remove disk'
+              }
+            >
+              Delete…
+            </Button>
           </div>
         </div>
       </article>
+      {replacing && (
+        <ReplaceBootDiskDialog
+          vm={vm}
+          busy={action.busy}
+          error={action.error}
+          onClose={() => {
+            if (!action.busy) setReplacing(false)
+          }}
+          onReplace={async (imageId) => {
+            if (action.busy || vm.phase === 'running') return
+            const job = await action.execute('vm.disk.replace', () =>
+              replaceBootDisk(vm.manifest.id, imageId),
+            )
+            if (job) setReplacing(false)
+          }}
+        />
+      )}
       {growing && (
         <Dialog
           open
@@ -144,13 +203,33 @@ export function VMDataDisk({ vm, disk, primary, run }: VMDataDiskProps) {
         </Dialog>
       )}
       <AlertDialog
+        open={wiping}
+        onCancel={() => {
+          if (!action.busy) setWiping(false)
+        }}
+        onConfirm={wipe}
+        busy={action.busy}
+        destructive
+        title={`Wipe ${disk.name}?`}
+        description={
+          primary
+            ? 'This permanently erases all data on the boot disk, including the operating system. The disk keeps its current capacity. Reinstall an operating system or boot from another device afterward.'
+            : 'This permanently erases all data on this disk. The disk stays attached to the VM and keeps its current capacity.'
+        }
+        confirmLabel="Wipe Disk"
+      />
+      <AlertDialog
         open={confirm}
         onCancel={() => setConfirm(false)}
         onConfirm={remove}
         busy={action.busy}
         destructive
         title={`Delete ${disk.name}?`}
-        description="This permanently deletes this disk and all data on it."
+        description={
+          primary
+            ? 'This permanently deletes the boot disk and all data on it. The VM will have no boot disk and can only start from an ISO, another disk, or the network.'
+            : 'This permanently deletes this disk and all data on it.'
+        }
         confirmLabel="Delete Disk"
       />
     </>

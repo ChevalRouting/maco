@@ -27,27 +27,34 @@ func (e *Engine) SeedDefaultTemplates(ctx context.Context) (int, error) {
 	if !e.FirstRun() {
 		return 0, nil
 	}
+
 	existing, err := e.ListTemplates()
 	if err != nil {
 		return 0, err
 	}
+
 	have := map[string]bool{}
 	for _, t := range existing {
 		have[t.Name] = true
 	}
+
 	seeded := 0
 	for _, d := range defaultTemplates() {
 		if have[d.Name] {
 			continue
 		}
+
 		if _, err := e.CreateTemplate(ctx, d.Name, d.Description, d.Spec); err != nil {
 			return seeded, err
 		}
+
 		seeded++
 	}
+
 	if err := e.markInitialized(); err != nil {
 		return seeded, err
 	}
+
 	log.Ctx(ctx).Info().Int("count", seeded).Msg("seeded default templates on first run")
 	return seeded, nil
 }

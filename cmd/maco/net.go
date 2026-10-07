@@ -91,6 +91,7 @@ func newNetListCommand() *cobra.Command {
 				if n.Mode == types.NetworkBridge {
 					target = n.Device
 				}
+
 				if n.Mode == types.NetworkBridged || n.Mode == types.NetworkVmnetBridged {
 					target = n.Uplink
 				}
@@ -138,6 +139,7 @@ func newNetEditCommand() *cobra.Command {
 				if err != nil {
 					return false, err
 				}
+
 				defer func() { _ = lock.Close() }()
 
 				current, err := store.Load(n.ID)

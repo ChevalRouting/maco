@@ -67,6 +67,7 @@ func newServeCommand() *cobra.Command {
 				queue.Close()
 				return err
 			}
+
 			defer queue.Close()
 
 			if reconcile {

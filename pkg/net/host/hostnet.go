@@ -258,22 +258,26 @@ func FindVLAN(parent string, tag int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	names := make([]string, 0, len(interfaces))
 	for name := range interfaces {
 		if strings.HasPrefix(name, "vlan") {
 			names = append(names, name)
 		}
 	}
+
 	sort.Strings(names)
 	for _, name := range names {
 		out, err := inspect(name)
 		if err != nil {
 			return "", err
 		}
+
 		if vlanMatches(out, parent, tag) {
 			return name, nil
 		}
 	}
+
 	return "", nil
 }
 

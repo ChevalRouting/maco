@@ -105,4 +105,124 @@ Lowercase imperative subject, optionally prefixed by the touched area (`vm: ...`
 
 ## Linting
 
-Run `task lint` before pushing: `golangci-lint` (config in `.golangci.yml`).
+Agents must run `task check-style` before building and before committing. It
+checks both Go modules, the UI, and repository-specific style rules. `task lint`
+is an alias for the same check.
+
+### Automated validation
+
+The shared Go configuration is `.golangci.yml` (golangci-lint v2). The UI uses
+`web/eslint.config.mjs`, `web/lint/rules.mjs`, and an independent comment check.
+Repository-specific Go syntax checks, text checks and lint orchestration live
+in `cmd/stylecheck/`. `task check-style` builds this Go command as
+`build/stylecheck` for the execution host, then runs it.
+
+Install a linter built with the same or a newer Go toolchain than this project:
+
+```sh
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+npm --prefix web ci
+```
+
+The pinned UI development dependencies use ESLint 10, its TypeScript parser,
+and the maintained stylistic plugin. Use a supported Node version for ESLint
+10: Node 20.19+, 22.13+, or 24+.
+
+Before building, run the dedicated task and proceed only when it passes:
+
+```sh
+task check-style
+task build
+```
+
+Use the same sequence for `task build-ui`, `task build-mcp`, and `task web-build`.
+Run `task test-lint` after changing lint configuration or custom rules.
+
+`task check-style` uses the Go binary to run all groups and returns a failure
+if any group fails. It checks both the root Go module and the independent
+`mcp/` module, Go syntax and text, and handwritten TypeScript/TSX. It reports existing violations too: there is no
+baseline suppression or changed-lines-only mode. Do not mistake a valid linter
+configuration for a clean codebase. Resolve violations before building or
+claiming validation passed.
+
+Build and run the checker directly when useful:
+
+```sh
+task build-style-checker
+./build/stylecheck
+./build/stylecheck --only style
+./build/stylecheck --only text
+./build/stylecheck --only style cmd/stylecheck/main.go
+```
+
+The command accepts `--root` with a path inside the repository. Without file
+arguments, it checks tracked and unignored untracked files. Optional file
+arguments restrict syntax/text checks to those paths. `--only go` checks both
+Go modules and `--only web` runs the UI checks. Checks report failures with a
+nonzero exit status and do not modify source files.
+
+For focused feedback:
+
+```sh
+task lint-go
+task lint-mcp
+task lint-style
+task lint-web
+npm --prefix web run lint:fix
+```
+
+The UI fix command applies safe ESLint formatting fixes. It does not rewrite
+components or delete prose comments. Use `gofmt -w` on edited Go files.
+
+| Rule | Enforcement |
+| --- | --- |
+| Go formatting | Go syntax checker; golangci-lint's gofmt formatter is configured too |
+| Blank line after a Go control-flow block | `wsl_v5` plus Go syntax checker, including switch/select cases |
+| Error assignment immediately followed by its check | `wsl_v5` plus Go syntax checker for `err` and names ending in `Err` |
+| Prose comments | Go syntax checker and UI comment checker; compiler directives, swag annotations, and cgo preambles are preserved |
+| Named Go model types | Go syntax checker rejects anonymous nonempty structs, including test cases |
+| Short Go closures | Go syntax checker caps anonymous bodies at three direct statements and five nonblank source lines; Cobra `RunE` handlers are exempt |
+| Explicitly ignored Go errors | `errcheck`, including tests, without default cleanup/printing exclusions; `_ =` and `_, _ =` remain allowed |
+| Named UI object types | `stylecheck/named-types` rejects inline object shapes unless they directly declare a named type alias |
+| Named multi-step UI event handlers | `stylecheck/named-handlers` flags inline JSX handlers with more than two direct statements |
+| Shared select, checkbox and numeric controls | `stylecheck/shared-controls` |
+| Semantic palette | `stylecheck/semantic-palette` checks literal utility colors, hex colors and RGB/HSL strings; SVG artwork fill/stroke is excluded |
+| Neutral table actions | `stylecheck/neutral-table-actions` |
+| Icon action labels and tooltips | `stylecheck/accessible-icon-actions` checks statically identifiable Lucide icon-only buttons |
+| UI formatting | Single quotes, no semicolons, no trailing spaces, final newline |
+| Em dashes | Repository text checker, including documentation |
+| Commit prefixes, lowercase imperative subjects and trailers | Agent review against the Commits section |
+
+Comment-naming checks ST1020, ST1021 and ST1022 are disabled because the policy
+requires no prose comments and permits swag annotations on exported symbols.
+Unused ESLint disable directives fail validation, and golangci-lint suppressions
+must name a specific linter.
+
+Generated Go directories and `web/src/api/generated/` are excluded. Required
+TypeScript directives remain allowed. A blanket `eslint-disable` comment is
+not allowed, and cannot disable the independent comment check.
+
+Some rules still require review: grouping plain statements by intent, whether a
+small Go closure captures locals, whether a page contains too much feature UI,
+input-state preservation and field limits, one emphasized action per rendered
+view, destructive actions using `AlertDialog`, status pill semantics, dynamic
+palette expressions, keyboard focus, and imperative commit grammar. Automated
+size limits are a conservative interpretation of "short"; a linter pass does
+not replace those checks.
+
+### Agent workflow
+
+Read this document before editing. Run `task check-style` before each build and
+before committing, and review the rules listed above that need human judgment.
+Keep commit subjects lowercase and imperative, optionally prefixed by the
+actual touched area, with no conventional prefixes or trailers.
+
+The check runs on the working tree and does not stage files, change Git
+configuration, or install commit hooks. Build tasks stay independent; agents
+must run the dedicated check first. Use `task check-style` and `task test-lint`
+in CI if hosted checks are added later.
+
+Report actual failures. Do not weaken checks or add broad exclusions to conceal
+an existing violation. If a tool fails to load packages or cannot read the Go
+export-data format, fix the toolchain installation first; that failure is not
+a source-code diagnostic.

@@ -343,6 +343,14 @@ export function removeDisk(id: string, disk: string): Promise<Job> {
   return call(api.removeDisk({ path: { id, disk } }))
 }
 
+export function wipeDisk(id: string, disk: string): Promise<Job> {
+  return call(api.wipeDisk({ path: { id, disk } }))
+}
+
+export function replaceBootDisk(id: string, imageId: string): Promise<Job> {
+  return call(api.replaceDisk({ path: { id, disk: 'disk' }, body: { image_id: imageId } }))
+}
+
 export function attachImage(id: string, media: Media) {
   return call(api.addDisk({ path: { id }, body: { name: media.name, size_gib: media.size_gib, image_id: media.id } }))
 }

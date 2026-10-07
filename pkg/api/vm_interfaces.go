@@ -84,6 +84,7 @@ func (s *Server) submitInterface(w http.ResponseWriter, r *http.Request, action 
 			return
 		}
 	}
+
 	p.ID = chi.URLParam(r, "interface")
 	s.submitJob(w, r, jobs.Payload{Action: action, Target: chi.URLParam(r, "id"), Interface: p})
 }

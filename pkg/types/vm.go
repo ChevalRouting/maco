@@ -60,7 +60,7 @@ type VMManifest struct {
 	Image       string            `yaml:"image,omitempty" json:"image"`
 	CPUs        int               `yaml:"cpus" json:"cpus" validate:"min=1"`
 	MemoryMiB   int               `yaml:"memory_mib" json:"memory_mib" validate:"min=64"`
-	DiskSizeGiB int               `yaml:"disk_size_gib" json:"disk_size_gib" validate:"min=1"`
+	DiskSizeGiB int               `yaml:"disk_size_gib" json:"disk_size_gib" validate:"min=0"`
 	Network     string            `yaml:"network,omitempty" json:"network,omitempty" binding:"optional"`
 	Addresses   []string          `yaml:"addresses,omitempty" json:"addresses,omitempty" validate:"dive,cidr" binding:"optional"`
 	Gateway     string            `yaml:"gateway,omitempty" json:"gateway,omitempty" validate:"omitempty,ip" binding:"optional"`
@@ -92,35 +92,49 @@ func (m *VMManifest) EffectiveGuestSetup() GuestSetup {
 	if m.GuestSetup != nil {
 		setup = *m.GuestSetup
 	}
+
 	if setup.Provisioner == "" {
 		setup.Provisioner = ProvisionerCloudInit
 	}
+
 	if setup.Mode == "" {
 		setup.Mode = GuestModeRaw
 	}
+
 	return setup
 }
 
 func (m *VMManifest) EffectiveBootOrder() []string {
-	devices := []string{"disk"}
+	devices := []string{}
+	if m.DiskSizeGiB > 0 {
+		devices = append(devices, "disk")
+	}
+
 	for _, disk := range m.Disks {
 		devices = append(devices, "disk:"+disk.ID)
 	}
+
 	for _, id := range m.ISOs {
 		devices = append(devices, "iso:"+id)
 	}
+
 	preferred := m.BootOrder
 	if len(preferred) == 0 {
 		preferred = []string{}
 		for _, id := range m.ISOs {
 			preferred = append(preferred, "iso:"+id)
 		}
-		preferred = append(preferred, "disk")
+
+		if m.DiskSizeGiB > 0 {
+			preferred = append(preferred, "disk")
+		}
 	}
+
 	valid := map[string]bool{}
 	for _, id := range devices {
 		valid[id] = true
 	}
+
 	seen := map[string]bool{}
 	result := []string{}
 	for _, id := range append(append([]string{}, preferred...), devices...) {
@@ -129,6 +143,7 @@ func (m *VMManifest) EffectiveBootOrder() []string {
 			seen[id] = true
 		}
 	}
+
 	return result
 }
 
@@ -136,5 +151,6 @@ func (m *VMManifest) EffectiveInterfaces() []VMInterface {
 	if m.Interfaces != nil {
 		return *m.Interfaces
 	}
+
 	return []VMInterface{{ID: "net0", Network: m.Network, Addresses: m.Addresses, Gateway: m.Gateway, Nameservers: m.Nameservers}}
 }

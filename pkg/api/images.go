@@ -31,11 +31,13 @@ func (s *Server) listImages(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, err.Error())
 		return
 	}
+
 	for _, m := range media {
 		if m.Kind == "image" {
 			names = append(names, "media:"+m.ID)
 		}
 	}
+
 	sort.Strings(names)
 	writeJSON(w, http.StatusOK, names)
 }
@@ -88,5 +90,6 @@ func (s *Server) deleteCatalogImage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }

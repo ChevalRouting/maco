@@ -14,16 +14,20 @@ func buildToString(t *testing.T, cfg Config) string {
 		if err != nil {
 			t.Fatalf("build butane: %v", err)
 		}
+
 		source = document
 	}
+
 	data, err := transpile(source)
 	if err != nil {
 		t.Fatalf("transpile ignition: %v", err)
 	}
+
 	var parsed map[string]any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		t.Fatalf("ignition is not valid JSON: %v", err)
 	}
+
 	return string(data)
 }
 

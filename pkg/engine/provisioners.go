@@ -19,6 +19,7 @@ func provisionFiles(files []types.GuestFile) []provision.File {
 	for _, file := range files {
 		out = append(out, provision.File{Name: file.Name, Content: file.Content})
 	}
+
 	return out
 }
 
@@ -26,6 +27,7 @@ func primaryFile(provisioner string) string {
 	if provisioner == types.ProvisionerIgnition {
 		return "config.bu"
 	}
+
 	return "user-data"
 }
 
@@ -34,14 +36,17 @@ func guestDeliveryFiles(prov provision.Provisioner, setup types.GuestSetup, para
 		if len(setup.Files) > 0 {
 			return provisionFiles(setup.Files), nil
 		}
+
 		if strings.TrimSpace(setup.Raw) != "" {
 			files, err := prov.Render(params)
 			if err != nil {
 				return nil, err
 			}
+
 			return overlayFile(files, primaryFile(setup.Provisioner), setup.Raw), nil
 		}
 	}
+
 	return prov.Render(params)
 }
 
@@ -51,6 +56,7 @@ func guestFilesHaveContent(setup types.GuestSetup) bool {
 			return true
 		}
 	}
+
 	return strings.TrimSpace(setup.Raw) != ""
 }
 
@@ -61,5 +67,6 @@ func overlayFile(files []provision.File, name, content string) []provision.File 
 			return files
 		}
 	}
+
 	return append(files, provision.File{Name: name, Content: content})
 }

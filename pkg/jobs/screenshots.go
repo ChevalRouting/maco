@@ -51,6 +51,7 @@ func (s *Service) enqueueScheduledBackups(ctx context.Context) {
 		if !schedule.Enabled || schedule.IntervalHours < 1 {
 			continue
 		}
+
 		if schedule.LastRunAt != 0 {
 			due := time.Unix(schedule.LastRunAt, 0).Add(time.Duration(schedule.IntervalHours) * time.Hour)
 			if now.Before(due) {
@@ -67,9 +68,11 @@ func (s *Service) enqueueScheduledBackups(ctx context.Context) {
 			log.Error().Err(err).Str("vm", schedule.VMID).Msg("enqueue scheduled backup")
 			continue
 		}
+
 		if err := s.engine.MarkScheduleRun(ctx, schedule.VMID, now); err != nil {
 			log.Error().Err(err).Str("vm", schedule.VMID).Msg("record scheduled backup time")
 		}
+
 		if schedule.KeepLast > 0 || schedule.MaxAgeDays > 0 {
 			if _, err := s.Submit(ctx, Payload{Action: "vm.backup.prune", Target: schedule.VMID, Backup: engine.BackupParams{KeepLast: schedule.KeepLast, MaxAgeDays: schedule.MaxAgeDays}}); err != nil {
 				log.Error().Err(err).Str("vm", schedule.VMID).Msg("enqueue backup prune")

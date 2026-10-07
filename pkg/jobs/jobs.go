@@ -135,6 +135,7 @@ func (s *Service) save(ctx context.Context, j *Job) error {
 	} else {
 		pipeline.Set(ctx, s.prefix+j.ID, data, 0)
 	}
+
 	pipeline.Publish(ctx, s.prefix+"events", data)
 	_, err = pipeline.Exec(ctx)
 	return err
@@ -150,6 +151,7 @@ func (s *Service) trimHistory(ctx context.Context) {
 	for i, id := range stale {
 		keys[i] = s.prefix + id
 	}
+
 	values, err := s.redis.MGet(ctx, keys...).Result()
 	if err != nil {
 		return
@@ -169,6 +171,7 @@ func (s *Service) trimHistory(ctx context.Context) {
 		pipeline.ZRem(ctx, s.prefix+"index", id)
 		trimmed++
 	}
+
 	if trimmed == 0 {
 		return
 	}
@@ -218,6 +221,7 @@ func (s *Service) Get(ctx context.Context, id string) (*Job, error) {
 	if err := json.Unmarshal(data, &j); err != nil {
 		return nil, err
 	}
+
 	j.Label = Label(j.Action)
 
 	if j.State == Pending || j.State == Running {
@@ -274,6 +278,7 @@ func (s *Service) ProcessTask(ctx context.Context, task *asynq.Task) error {
 	if err != nil {
 		return err
 	}
+
 	defer lock.release()
 
 	var payload Payload
@@ -362,7 +367,7 @@ func (s *Service) execute(ctx context.Context, p Payload) (string, error) {
 		return p.Target, s.engine.ShutdownVM(p.Target)
 	case "vm.reboot":
 		return p.Target, s.engine.RebootVM(p.Target)
-	case "vm.disk.add", "vm.disk.remove", "vm.disk.grow":
+	case "vm.disk.add", "vm.disk.remove", "vm.disk.grow", "vm.disk.wipe", "vm.disk.replace":
 		return p.Target, s.engine.ManageDisk(ctx, p.Target, p.Action, p.Disk)
 	case "vm.interface.add", "vm.interface.update", "vm.interface.remove":
 		return p.Target, s.engine.ManageInterfaceContext(ctx, p.Target, p.Action, p.Interface)
@@ -379,12 +384,14 @@ func (s *Service) execute(ctx context.Context, p Payload) (string, error) {
 		if err != nil {
 			return "", err
 		}
+
 		return res.VMID, nil
 	case "vm.backup.restore":
 		m, err := s.engine.RestoreVM(ctx, p.Target, p.Backup.Timestamp, p.Backup.AsNew)
 		if err != nil {
 			return "", err
 		}
+
 		return m.ID, nil
 	case "vm.backup.delete":
 		return p.Target, s.engine.DeleteBackup(p.Target, p.Backup.Timestamp)
@@ -392,11 +399,13 @@ func (s *Service) execute(ctx context.Context, p Payload) (string, error) {
 		if _, err := s.engine.PruneBackups(ctx, p.Target, p.Backup.KeepLast, p.Backup.MaxAgeDays); err != nil {
 			return "", err
 		}
+
 		return p.Target, nil
 	case "vm.snapshot.create":
 		if _, err := s.engine.CreateSnapshot(ctx, p.Target, p.Snapshot); err != nil {
 			return "", err
 		}
+
 		return p.Target, nil
 	case "vm.snapshot.restore":
 		return p.Target, s.engine.RestoreSnapshot(ctx, p.Target, p.Snapshot)
@@ -435,12 +444,14 @@ func (s *Service) bootReconcile(ctx context.Context) (string, error) {
 	if listErr != nil {
 		return "host", errors.Join(err, listErr)
 	}
+
 	for _, id := range targets {
 		log.Ctx(ctx).Info().Str("vm", id).Msg("Queuing autostart")
 		if _, submitErr := s.Submit(ctx, Payload{Action: "vm.start", Target: id}); submitErr != nil {
 			err = errors.Join(err, fmt.Errorf("enqueue start %s: %w", id, submitErr))
 		}
 	}
+
 	return "host", err
 }
 
@@ -529,9 +540,11 @@ func (s *Service) reconcileOrphans(ctx context.Context) {
 			if json.Unmarshal([]byte(data), &job) != nil {
 				continue
 			}
+
 			if job.State != Pending && job.State != Running {
 				continue
 			}
+
 			if time.Since(job.CreatedAt) < time.Minute {
 				continue
 			}
@@ -550,6 +563,7 @@ func (s *Service) reconcileOrphans(ctx context.Context) {
 			if job.Error == "" {
 				job.Error = "job was interrupted before it started"
 			}
+
 			job.State = Failed
 			now := time.Now().UTC()
 			job.FinishedAt = &now

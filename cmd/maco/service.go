@@ -40,9 +40,13 @@ func serviceManager(addr, redisServer string, noRedis bool, tlsCert, tlsKey stri
 
 func serviceManagerFor(binary, addr, redisServer string, noRedis bool, tlsCert, tlsKey string) (*service.Manager, error) {
 	redisURL := os.Getenv("MACO_REDIS_URL")
-	managed := redisURL == ""
+	managed := managesRedis() && redisURL == ""
 	if redisURL == "" {
 		redisURL = "redis://localhost:6379/0"
+	}
+
+	if !managesRedis() {
+		noRedis = true
 	}
 
 	if !noRedis && redisServer == "" {
@@ -59,6 +63,7 @@ func serviceManagerFor(binary, addr, redisServer string, noRedis bool, tlsCert, 
 		if err != nil {
 			return nil, err
 		}
+
 		redisPassword = password
 		redisURL = fmt.Sprintf("redis://:%s@127.0.0.1:6379/0", url.QueryEscape(password))
 	}
@@ -81,6 +86,7 @@ func redisSecret(dir string) (string, error) {
 	if err == nil {
 		return strings.TrimSpace(string(data)), nil
 	}
+
 	if !os.IsNotExist(err) {
 		return "", err
 	}
@@ -113,6 +119,10 @@ func redisSecret(dir string) (string, error) {
 }
 
 func redisMissingWarning(redisServer string, noRedis bool) {
+	if !managesRedis() {
+		return
+	}
+
 	if !noRedis && redisServer == "" && findRedisServer() == "" {
 		log.Warn().Msg("no redis-server found; install Redis with `brew install redis`, then re-run. maco serve will retry until Redis is reachable")
 	}

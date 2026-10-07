@@ -29,6 +29,7 @@ func fixture(t *testing.T, name string) *liveFixture {
 	if err := json.Unmarshal(testContract, &f.document); err != nil {
 		t.Fatal(err)
 	}
+
 	return f
 }
 
@@ -40,21 +41,25 @@ func (f *liveFixture) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "host unavailable", 503)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(f.document)
 		return
 	}
+
 	if strings.HasSuffix(r.URL.Path, "/wait") || strings.HasSuffix(r.URL.Path, "/completion") {
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = fmt.Fprint(w, "event: done\ndata: {\"id\":\"job-9\",\"state\":\"succeeded\"}\n\n")
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == "POST" {
 		w.WriteHeader(202)
 		_, _ = fmt.Fprint(w, `{"id":"job-9","state":"pending"}`)
 		return
 	}
+
 	_ = json.NewEncoder(w).Encode(map[string]any{"host": f.name})
 }
 
@@ -66,18 +71,22 @@ func serverForFixtures(t *testing.T, fixtures map[string]*liveFixture) (*mcp.Cli
 		t.Cleanup(host.Close)
 		cfg.Instances[name] = InstanceConfig{URL: host.URL, Token: "test-secret"}
 	}
+
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	file := filepath.Join(t.TempDir(), "registry.yml")
 	if err = os.WriteFile(file, data, 0600); err != nil {
 		t.Fatal(err)
 	}
+
 	server, err := New(file, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return connectServer(t, server), server
 }
 
@@ -90,20 +99,25 @@ func TestMixedContractsDoNotShareInputSchemas(t *testing.T) {
 	if len(s.failures) > 0 {
 		t.Fatal(s.failures)
 	}
+
 	toolA := s.catalogs["a"].toolNames["listVMs"]
 	toolB := s.catalogs["b"].toolNames["listVMs"]
 	if toolA == toolB {
 		t.Fatal("incompatible schemas share a tool")
 	}
+
 	if call(t, cs, toolA, map[string]any{"instance": "a"}).IsError {
 		t.Fatal("host a rejected its own schema")
 	}
+
 	if !call(t, cs, toolB, map[string]any{"instance": "b"}).IsError {
 		t.Fatal("host b required parameter ignored")
 	}
+
 	if !call(t, cs, toolA, map[string]any{"instance": "b"}).IsError {
 		t.Fatal("host b accepted host a contract")
 	}
+
 	if call(t, cs, toolB, map[string]any{"instance": "b", "scope": "all"}).IsError {
 		t.Fatal("host b valid request failed")
 	}
@@ -116,18 +130,22 @@ func TestOfflineInstanceAndRefresh(t *testing.T) {
 	if s.catalogs["a"] == nil || s.catalogs["b"] != nil {
 		t.Fatal("unexpected discovery state")
 	}
+
 	if call(t, cs, "listVMs", map[string]any{"instance": "a"}).IsError {
 		t.Fatal("offline host blocked healthy host")
 	}
+
 	b.mu.Lock()
 	b.offline = false
 	b.mu.Unlock()
 	if call(t, cs, "instances_refresh", map[string]any{"instance": "b"}).IsError {
 		t.Fatal("refresh failed")
 	}
+
 	if call(t, cs, "listVMs", map[string]any{"instance": "b"}).IsError {
 		t.Fatal("recovered host unavailable")
 	}
+
 	b.mu.Lock()
 	delete(b.document["paths"].(map[string]any)["/api/vms"].(map[string]any), "get")
 	b.mu.Unlock()
@@ -150,6 +168,7 @@ func TestContractMetadataDrivesRenamedJobOperations(t *testing.T) {
 			}
 		}
 	}
+
 	wait := paths["/api/jobs/{id}/wait"].(map[string]any)
 	wait["get"].(map[string]any)["operationId"] = "awaitCompletion"
 	delete(paths, "/api/jobs/{id}/wait")
@@ -159,6 +178,7 @@ func TestContractMetadataDrivesRenamedJobOperations(t *testing.T) {
 	if len(s.failures) > 0 {
 		t.Fatal(s.failures)
 	}
+
 	result := call(t, cs, "protectVM", map[string]any{"instance": "renamed", "id": "vm-1", "wait": true})
 	if result.IsError || !strings.Contains(result.Content[0].(*mcp.TextContent).Text, `"state":"succeeded"`) {
 		t.Fatal(result)
@@ -171,6 +191,7 @@ func TestDescribeContainsUsableContract(t *testing.T) {
 	if result.IsError {
 		t.Fatal(result)
 	}
+
 	data, _ := json.Marshal(result.StructuredContent)
 	for _, word := range []string{"MiB", "GiB", "username", "minimum", "responses", "waitJob", "listCatalog"} {
 		if !strings.Contains(string(data), word) {
@@ -186,13 +207,16 @@ func TestInvalidContractDoesNotFallBack(t *testing.T) {
 	if s.catalogs["old"] != nil {
 		t.Fatal("old server silently accepted")
 	}
+
 	list, err := cs.ListTools(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(list.Tools) != 3 {
 		t.Fatal("stale embedded tools exposed")
 	}
+
 	result := call(t, cs, "instances_list", map[string]any{})
 	if !strings.Contains(result.Content[0].(*mcp.TextContent).Text, "upgrade Maco") {
 		t.Fatal("missing upgrade guidance")

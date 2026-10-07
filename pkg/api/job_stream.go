@@ -97,6 +97,7 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request, generalized bool
 	if err != nil {
 		return
 	}
+
 	defer release()
 	defer func() { _ = ws.CloseNow() }()
 	ctx := ws.CloseRead(r.Context())
@@ -108,6 +109,7 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request, generalized bool
 		_ = ws.Close(websocket.StatusInternalError, "job stream unavailable")
 		return
 	}
+
 	defer func() { _ = subscription.Close() }()
 
 	var resources <-chan []string
@@ -116,6 +118,7 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request, generalized bool
 		defer unsubscribe()
 		resources = channel
 	}
+
 	events := subscription.Channel()
 	if err := s.sendJobsSnapshot(ctx, ws); err != nil {
 		return
@@ -168,25 +171,30 @@ func (s *Server) sendStreamUpdate(ctx context.Context, ws *websocket.Conn, paylo
 	if err := json.Unmarshal([]byte(payload), &job); err != nil {
 		return err
 	}
+
 	job.Label = jobs.Label(job.Action)
 
 	if job.Private() {
 		if generalized && job.State == jobs.Succeeded {
 			return writeJobsEvent(ctx, ws, JobsEvent{Type: "invalidate", Resources: []string{"preview:" + job.Target}})
 		}
+
 		return nil
 	}
 
 	if err := writeJobsEvent(ctx, ws, JobsEvent{Type: "update", Job: &job}); err != nil {
 		return err
 	}
+
 	if generalized && (job.State == jobs.Succeeded || job.State == jobs.Failed) {
 		resources := []string{"vms", "disks", "storage", "usb"}
 		if strings.HasPrefix(job.Action, "network.") || strings.HasPrefix(job.Action, "vm.interface.") {
 			resources = []string{"networks", "interfaces", "vms"}
 		}
+
 		return writeJobsEvent(ctx, ws, JobsEvent{Type: "invalidate", Resources: resources})
 	}
+
 	return nil
 }
 

@@ -17,6 +17,7 @@ export function VMDisks({ vm, run }: VMDisksProps) {
   const action = useRowAction(vm.manifest.id, vm.manifest.name, 'vm', run)
   const blocked = action.busy
   const disks = vm.manifest.disks || []
+  const hasBoot = (vm.manifest.disk_size_gib || 0) > 0
   const valid =
     name.trim().length > 0 && Number.isSafeInteger(size) && size >= 1
 
@@ -33,7 +34,7 @@ export function VMDisks({ vm, run }: VMDisksProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-semibold">Disks ({disks.length + 1})</h2>
+        <h2 className="font-semibold">Disks ({disks.length + (hasBoot ? 1 : 0)})</h2>
       <Button
         size="sm"
         variant="suggested"
@@ -44,17 +45,19 @@ export function VMDisks({ vm, run }: VMDisksProps) {
       </Button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-        <VMDataDisk
-          key="boot"
-          vm={vm}
-          disk={{
-            id: 'boot',
-            name: 'Disk 1',
-            size_gib: vm.manifest.disk_size_gib,
-          }}
-          primary
-          run={run}
-        />
+        {hasBoot && (
+          <VMDataDisk
+            key="boot"
+            vm={vm}
+            disk={{
+              id: 'disk',
+              name: 'Disk 1',
+              size_gib: vm.manifest.disk_size_gib,
+            }}
+            primary
+            run={run}
+          />
+        )}
         {disks.map((disk) => (
           <VMDataDisk
             key={disk.id}

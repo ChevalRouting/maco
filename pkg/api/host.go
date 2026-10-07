@@ -68,5 +68,6 @@ func (s *Server) hostPower(w http.ResponseWriter, r *http.Request, action string
 			return
 		}
 	}
+
 	s.submitJob(w, r, jobs.Payload{Action: action, Target: "host", Force: req.Force})
 }

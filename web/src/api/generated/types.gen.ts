@@ -2536,6 +2536,89 @@ export type GrowDiskResponses = {
 
 export type GrowDiskResponse = GrowDiskResponses[keyof GrowDiskResponses];
 
+export type ReplaceDiskData = {
+    /**
+     * Request
+     */
+    body: EngineDiskParams;
+    path: {
+        /**
+         * id
+         */
+        id: string;
+        /**
+         * disk
+         */
+        disk: string;
+    };
+    query?: never;
+    url: '/api/vms/{id}/disks/{disk}/replace';
+};
+
+export type ReplaceDiskErrors = {
+    /**
+     * Bad Request
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Service Unavailable
+     */
+    503: ApiErrorResponse;
+};
+
+export type ReplaceDiskError = ReplaceDiskErrors[keyof ReplaceDiskErrors];
+
+export type ReplaceDiskResponses = {
+    /**
+     * Accepted
+     */
+    202: JobsJob;
+};
+
+export type ReplaceDiskResponse = ReplaceDiskResponses[keyof ReplaceDiskResponses];
+
+export type WipeDiskData = {
+    body?: never;
+    path: {
+        /**
+         * id
+         */
+        id: string;
+        /**
+         * disk
+         */
+        disk: string;
+    };
+    query?: never;
+    url: '/api/vms/{id}/disks/{disk}/wipe';
+};
+
+export type WipeDiskErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ApiErrorResponse;
+    /**
+     * Service Unavailable
+     */
+    503: ApiErrorResponse;
+};
+
+export type WipeDiskError = WipeDiskErrors[keyof WipeDiskErrors];
+
+export type WipeDiskResponses = {
+    /**
+     * Accepted
+     */
+    202: JobsJob;
+};
+
+export type WipeDiskResponse = WipeDiskResponses[keyof WipeDiskResponses];
+
 export type DisplayVmData = {
     body?: never;
     path: {

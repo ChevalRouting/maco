@@ -85,6 +85,7 @@ func Shared(ctx context.Context, path string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() { _ = lock.Close() }()
 
 	database, err := InitDB(ctx, path)

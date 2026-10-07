@@ -31,6 +31,7 @@ func (s *Server) listTemplates(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	writeJSON(w, http.StatusOK, templates)
 }
 
@@ -52,6 +53,7 @@ func (s *Server) getTemplate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
+
 	writeJSON(w, http.StatusOK, t)
 }
 
@@ -74,11 +76,13 @@ func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	t, err := s.engine.CreateTemplate(r.Context(), p.Name, p.Description, p.Spec)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	writeJSON(w, http.StatusCreated, t)
 }
 
@@ -103,11 +107,13 @@ func (s *Server) updateTemplate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	t, err := s.engine.UpdateTemplate(r.Context(), chi.URLParam(r, "id"), p.Name, p.Description, p.Spec)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	writeJSON(w, http.StatusOK, t)
 }
 
@@ -133,16 +139,19 @@ func (s *Server) instantiateTemplate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	spec, err := s.engine.TemplateInstance(chi.URLParam(r, "id"), p)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	keys, err := s.creatorSSHKeys(r)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	s.submitJob(w, r, jobs.Payload{Action: "vm.create", Target: spec.Name, VM: spec, SSHKeys: keys})
 }
 
@@ -163,5 +172,6 @@ func (s *Server) deleteTemplate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }

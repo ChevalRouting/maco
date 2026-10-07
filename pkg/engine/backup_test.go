@@ -32,6 +32,7 @@ func TestBackupVM(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
+
 	for _, name := range []string{"disk.qcow2", dataID + ".qcow2"} {
 		out, err := exec.Command("qemu-img", "create", "-f", "qcow2", filepath.Join(dir, name), "1G").CombinedOutput()
 		if err != nil {

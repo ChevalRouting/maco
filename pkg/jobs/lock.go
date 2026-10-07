@@ -33,6 +33,7 @@ func acquireLock(ctx context.Context, client *redis.Client, key string) (*redisL
 		if err != nil {
 			return nil, err
 		}
+
 		if ok {
 			break
 		}

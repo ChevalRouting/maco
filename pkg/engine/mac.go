@@ -17,6 +17,7 @@ func (e *Engine) SuggestMAC() MACSuggestion {
 	for i := 0; i < 64 && used[strings.ToLower(mac)]; i++ {
 		mac = vm.RandomMAC()
 	}
+
 	return MACSuggestion{OUI: vm.MACPrefix(), MAC: mac}
 }
 
@@ -26,14 +27,17 @@ func (e *Engine) usedMACs() map[string]bool {
 	if err != nil {
 		return used
 	}
+
 	for _, m := range manifests {
 		for _, nic := range m.EffectiveInterfaces() {
 			mac := nic.MAC
 			if mac == "" {
 				mac = vm.InterfaceMAC(m.ID, nic.ID)
 			}
+
 			used[strings.ToLower(mac)] = true
 		}
 	}
+
 	return used
 }

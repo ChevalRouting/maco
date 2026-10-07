@@ -1,3 +1,5 @@
+//go:build darwin
+
 package datapath
 
 import (
@@ -53,6 +55,7 @@ func RunWorker(runDir, bridge string, uid, gid int) (workerError error) {
 		destroyInterface(endpoint)
 		return err
 	}
+
 	defer cleanupWorker(runDir, endpoint, peer)
 
 	if err := host.Pair(endpoint, peer); err != nil {
@@ -119,6 +122,7 @@ func savePort(runDir string, port Port, uid, gid int) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = file.Close() }()
 
 	if err := file.Chown(uid, gid); err != nil {
@@ -156,6 +160,7 @@ func reportFailure(runDir string, uid, gid int, workerError *error) {
 	if err != nil {
 		return
 	}
+
 	defer func() { _ = file.Close() }()
 
 	_ = file.Chown(uid, gid)

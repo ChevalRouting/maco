@@ -29,6 +29,7 @@ func (p USBParams) ValidateAttach() error {
 	if len(p.DeviceID) != 24 || len(p.Fingerprint) != 64 || p.AttachmentID != "" || p.AssignmentKey != "" {
 		return fmt.Errorf("select a USB device from the current inventory")
 	}
+
 	return nil
 }
 
@@ -69,6 +70,7 @@ func (e *Engine) openUSBRegistry(ctx context.Context) (*usbRegistry, error) {
 	if dir == "" {
 		dir = filepath.Join("/tmp", fmt.Sprintf("maco-usb-%d", os.Geteuid()))
 	}
+
 	file, err := storage.Lock(ctx, filepath.Join(dir, "lock"))
 	if err != nil {
 		return nil, err
@@ -80,12 +82,14 @@ func (e *Engine) openUSBRegistry(ctx context.Context) (*usbRegistry, error) {
 		r.close()
 		return nil, err
 	}
+
 	if len(data) > 0 {
 		if err := json.Unmarshal(data, &r.claims); err != nil {
 			r.close()
 			return nil, fmt.Errorf("USB registry unreadable: %w", err)
 		}
 	}
+
 	return r, nil
 }
 
@@ -94,6 +98,7 @@ func (r *usbRegistry) save() error {
 	if err != nil {
 		return err
 	}
+
 	return storage.WriteFile(filepath.Join(r.dir, "claims.json"), data, 0o600)
 }
 
@@ -102,10 +107,12 @@ func usbGeneration(runDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	data, err := os.ReadFile(filepath.Join(runDir, "qemu.pid"))
 	if err != nil {
 		return "", err
 	}
+
 	return strings.TrimSpace(string(data)) + ":" + strconv.FormatInt(info.ModTime().UnixNano(), 10), nil
 }
 
@@ -116,13 +123,16 @@ func (r *usbRegistry) reconcile() {
 		if errors.Is(err, os.ErrNotExist) || (err == nil && generation != claim.Generation) {
 			continue
 		}
+
 		if err == nil && syscall.Kill(claim.PID, 0) == syscall.ESRCH {
 			continue
 		}
+
 		observed, observeErr := vm.ObserveUSB(filepath.Join(claim.RunDir, "qmp.sock"), claim.QEMUID)
 		if err == nil && observeErr == nil && !observed.Exists {
 			continue
 		}
+
 		claim.Attachment.State, claim.Attachment.Reason = "unknown", "Could not verify QEMU attachment; ownership is retained"
 		if err == nil && observeErr == nil {
 			claim.Attachment.State, claim.Attachment.Reason = "attached", ""
@@ -130,8 +140,10 @@ func (r *usbRegistry) reconcile() {
 				claim.Attachment.State, claim.Attachment.Reason = "missing", "Host device is disconnected or unavailable; detach to release the assignment"
 			}
 		}
+
 		retained = append(retained, claim)
 	}
+
 	r.claims = retained
 }
 
@@ -139,6 +151,7 @@ func (e *Engine) hostUSBDevices() ([]usb.Device, error) {
 	if e.usbDevices != nil {
 		return e.usbDevices()
 	}
+
 	return usb.List()
 }
 
@@ -149,21 +162,25 @@ func (e *Engine) ListUSBDevices(ctx context.Context) (USBInventory, error) {
 		result.Reason = err.Error()
 		return result, nil
 	}
+
 	r, err := e.openUSBRegistry(ctx)
 	if err != nil {
 		return result, err
 	}
+
 	defer r.close()
 	r.reconcile()
 	if err := r.save(); err != nil {
 		return result, err
 	}
+
 	for i := range devices {
 		if devices[i].State == "available" {
 			if _, err := usb.Resolve(devices, devices[i].ID, devices[i].Fingerprint); err != nil {
 				devices[i].State, devices[i].Reason = "unsupported", err.Error()
 			}
 		}
+
 		for _, claim := range r.claims {
 			if sameUSBPort(devices[i], claim.Attachment.Device) {
 				devices[i].State = "assigned"
@@ -172,10 +189,12 @@ func (e *Engine) ListUSBDevices(ctx context.Context) (USBInventory, error) {
 			}
 		}
 	}
+
 	result.Devices, result.Supported = devices, true
 	if err := vm.USBSupport(); err != nil {
 		result.Supported, result.Reason = false, err.Error()
 	}
+
 	return result, nil
 }
 
@@ -186,21 +205,25 @@ func (e *Engine) ListVMUSB(ctx context.Context, ref string) ([]USBAttachment, er
 	if err != nil {
 		return nil, err
 	}
+
 	r, err := e.openUSBRegistry(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	defer r.close()
 	r.reconcile()
 	if err := r.save(); err != nil {
 		return nil, err
 	}
+
 	result := []USBAttachment{}
 	for _, claim := range r.claims {
 		if claim.Attachment.VMID == m.ID && claim.RunDir == e.paths.VMRunDir(m.ID) {
 			result = append(result, claim.Attachment)
 		}
 	}
+
 	for _, assignment := range m.USB {
 		key := AssignmentKey(assignment)
 		found := false
@@ -210,14 +233,17 @@ func (e *Engine) ListVMUSB(ctx context.Context, ref string) ([]USBAttachment, er
 				found = true
 			}
 		}
+
 		if !found {
 			product := assignment.Product
 			if product == "" {
 				product = fmt.Sprintf("USB device %04x:%04x", assignment.VendorID, assignment.ProductID)
 			}
+
 			result = append(result, USBAttachment{ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte(m.ID+":"+key)).String(), VMID: m.ID, VMName: m.Name, AssignmentKey: key, State: "on-start", Device: usb.Device{Product: product, Serial: assignment.Serial, VendorID: assignment.VendorID, ProductID: assignment.ProductID, Classes: []string{}}})
 		}
 	}
+
 	return result, nil
 }
 
@@ -229,10 +255,12 @@ func (e *Engine) AttachUSB(ctx context.Context, ref string, p USBParams) (string
 	if err := p.ValidateAttach(); err != nil {
 		return "", err
 	}
+
 	m, err := e.vms.Resolve(ref)
 	if err != nil {
 		return "", err
 	}
+
 	return e.attachUSBDevice(ctx, m, func(devices []usb.Device) (usb.Device, error) {
 		return usb.Resolve(devices, p.DeviceID, p.Fingerprint)
 	})
@@ -243,41 +271,49 @@ func (e *Engine) attachUSBDevice(ctx context.Context, m *types.VMManifest, selec
 	if err != nil {
 		return "", err
 	}
+
 	defer func() { _ = lock.Close() }()
 	r, err := e.openUSBRegistry(ctx)
 	if err != nil {
 		return "", err
 	}
+
 	defer r.close()
 	st := e.driver.Status(m.ID)
 	if st.Phase != vm.PhaseRunning {
 		return "", fmt.Errorf("start the VM before attaching USB devices")
 	}
+
 	r.reconcile()
 	devices, err := e.hostUSBDevices()
 	if err != nil {
 		return "", err
 	}
+
 	device, err := selector(devices)
 	if err != nil {
 		return "", err
 	}
+
 	for _, claim := range r.claims {
 		if sameUSBPort(device, claim.Attachment.Device) {
 			return "", fmt.Errorf("USB device is already assigned to %s", claim.Attachment.VMName)
 		}
 	}
+
 	runDir := e.paths.VMRunDir(m.ID)
 	generation, err := usbGeneration(runDir)
 	if err != nil {
 		return "", err
 	}
+
 	id := uuid.NewString()
 	claim := usbClaim{Attachment: USBAttachment{ID: id, VMID: m.ID, VMName: m.Name, Device: device, State: "attaching"}, QEMUID: vm.USBDeviceID(id), RunDir: runDir, PID: st.PID, Generation: generation}
 	r.claims = append(r.claims, claim)
 	if err := r.save(); err != nil {
 		return "", err
 	}
+
 	if err := e.driver.AttachUSB(m.ID, claim.QEMUID, device); err != nil {
 		cleanupErr := e.driver.DetachUSB(m.ID, claim.QEMUID)
 		if cleanupErr == nil {
@@ -285,20 +321,25 @@ func (e *Engine) attachUSBDevice(ctx context.Context, m *types.VMManifest, selec
 		} else {
 			r.claims[len(r.claims)-1].Attachment.State = "unknown"
 		}
+
 		saveErr := r.save()
 		return id, errors.Join(err, cleanupErr, saveErr)
 	}
+
 	fresh, verifyErr := e.hostUSBDevices()
 	if verifyErr == nil {
 		verifyErr = usb.VerifyConnection(fresh, device)
 	}
+
 	if verifyErr != nil {
 		cleanupErr := e.driver.DetachUSB(m.ID, claim.QEMUID)
 		if cleanupErr == nil {
 			r.claims = r.claims[:len(r.claims)-1]
 		}
+
 		return id, errors.Join(fmt.Errorf("USB identity could not be confirmed after capture: %w", verifyErr), cleanupErr, r.save())
 	}
+
 	r.claims[len(r.claims)-1].Attachment.State = "attached"
 	return id, r.save()
 }
@@ -308,9 +349,11 @@ func assignmentLabel(a types.VMUSBAssignment) string {
 	if a.Product != "" {
 		label = a.Product + " (" + label + ")"
 	}
+
 	if a.Serial != "" {
 		label += " serial " + a.Serial
 	}
+
 	return label
 }
 
@@ -319,6 +362,7 @@ func AssignmentKey(a types.VMUSBAssignment) string {
 	if a.Serial != "" {
 		key += ":" + a.Serial
 	}
+
 	return key
 }
 
@@ -328,20 +372,26 @@ func matchUSBAssignment(devices []usb.Device, a types.VMUSBAssignment) (usb.Devi
 		if device.VendorID != a.VendorID || device.ProductID != a.ProductID {
 			continue
 		}
+
 		if a.Serial != "" && device.Serial != a.Serial {
 			continue
 		}
+
 		matches = append(matches, device)
 	}
+
 	if len(matches) == 0 {
 		return usb.Device{}, fmt.Errorf("assigned USB device %s is not connected", assignmentLabel(a))
 	}
+
 	if len(matches) > 1 {
 		return usb.Device{}, fmt.Errorf("assigned USB device %s matches multiple connected devices; set a serial or connect only one", assignmentLabel(a))
 	}
+
 	if matches[0].State != "available" {
 		return usb.Device{}, fmt.Errorf("assigned USB device %s is unavailable: %s", assignmentLabel(a), matches[0].Reason)
 	}
+
 	return matches[0], nil
 }
 
@@ -349,30 +399,36 @@ func (e *Engine) checkUSBAssignments(ctx context.Context, m *types.VMManifest) e
 	if len(m.USB) == 0 {
 		return nil
 	}
+
 	r, err := e.openUSBRegistry(ctx)
 	if err != nil {
 		return err
 	}
+
 	defer r.close()
 	r.reconcile()
 	if err := r.save(); err != nil {
 		return err
 	}
+
 	devices, err := e.hostUSBDevices()
 	if err != nil {
 		return err
 	}
+
 	for _, assignment := range m.USB {
 		device, err := matchUSBAssignment(devices, assignment)
 		if err != nil {
 			return err
 		}
+
 		for _, claim := range r.claims {
 			if sameUSBPort(device, claim.Attachment.Device) {
 				return fmt.Errorf("assigned USB device %s is already attached to %s", assignmentLabel(assignment), claim.Attachment.VMName)
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -385,6 +441,7 @@ func (e *Engine) attachAssignedUSB(ctx context.Context, m *types.VMManifest) err
 			return fmt.Errorf("attach assigned USB device %s: %w", assignmentLabel(assignment), err)
 		}
 	}
+
 	return nil
 }
 
@@ -396,6 +453,7 @@ func (e *Engine) AssignUSBSelection(ctx context.Context, ref string, p USBParams
 	if err := p.ValidateAttach(); err != nil {
 		return types.VMUSBAssignment{}, err
 	}
+
 	return e.assignUSB(ctx, ref, p.DeviceID, p.Fingerprint)
 }
 
@@ -405,24 +463,29 @@ func (e *Engine) assignUSB(ctx context.Context, ref, deviceID, fingerprint strin
 	if err != nil {
 		return empty, err
 	}
+
 	lock, err := e.driver.LockContext(ctx, m.ID)
 	if err != nil {
 		return empty, err
 	}
+
 	defer func() { _ = lock.Close() }()
 	r, err := e.openUSBRegistry(ctx)
 	if err != nil {
 		return empty, err
 	}
+
 	defer r.close()
 	m, err = e.vms.Load(m.ID)
 	if err != nil {
 		return empty, err
 	}
+
 	devices, err := e.hostUSBDevices()
 	if err != nil {
 		return empty, err
 	}
+
 	if fingerprint == "" {
 		for _, device := range devices {
 			if device.ID == deviceID {
@@ -430,29 +493,35 @@ func (e *Engine) assignUSB(ctx context.Context, ref, deviceID, fingerprint strin
 			}
 		}
 	}
+
 	device, err := usb.Resolve(devices, deviceID, fingerprint)
 	if err != nil {
 		return empty, err
 	}
+
 	assignment := types.VMUSBAssignment{VendorID: device.VendorID, ProductID: device.ProductID, Serial: device.Serial, Product: device.Product}
 	if _, err := matchUSBAssignment(devices, assignment); err != nil {
 		return empty, err
 	}
+
 	r.reconcile()
 	for _, claim := range r.claims {
 		if sameUSBPort(device, claim.Attachment.Device) && (claim.Attachment.VMID != m.ID || claim.RunDir != e.paths.VMRunDir(m.ID)) {
 			return empty, fmt.Errorf("USB device is already assigned to %s", claim.Attachment.VMName)
 		}
 	}
+
 	for _, existing := range m.USB {
 		if AssignmentKey(existing) == AssignmentKey(assignment) {
 			return assignment, nil
 		}
 	}
+
 	m.USB = append(m.USB, assignment)
 	if err := e.vms.Save(m); err != nil {
 		return empty, err
 	}
+
 	return assignment, nil
 }
 
@@ -461,20 +530,24 @@ func (e *Engine) UnassignUSB(ctx context.Context, ref, key string) error {
 	if err != nil {
 		return err
 	}
+
 	lock, err := e.driver.LockContext(ctx, m.ID)
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = lock.Close() }()
 	r, err := e.openUSBRegistry(ctx)
 	if err != nil {
 		return err
 	}
+
 	defer r.close()
 	m, err = e.vms.Load(m.ID)
 	if err != nil {
 		return err
 	}
+
 	matched := []types.VMUSBAssignment{}
 	remaining := []types.VMUSBAssignment{}
 	for _, assignment := range m.USB {
@@ -484,12 +557,15 @@ func (e *Engine) UnassignUSB(ctx context.Context, ref, key string) error {
 			remaining = append(remaining, assignment)
 		}
 	}
+
 	if len(matched) == 0 {
 		return fmt.Errorf("no USB assignment matches %q", key)
 	}
+
 	if len(matched) > 1 {
 		return fmt.Errorf("ambiguous USB assignment %q; include its serial", key)
 	}
+
 	r.reconcile()
 	retained := []usbClaim{}
 	for _, claim := range r.claims {
@@ -501,10 +577,12 @@ func (e *Engine) UnassignUSB(ctx context.Context, ref, key string) error {
 			retained = append(retained, claim)
 		}
 	}
+
 	r.claims = retained
 	if err := r.save(); err != nil {
 		return err
 	}
+
 	m.USB = remaining
 	return e.vms.Save(m)
 }
@@ -514,9 +592,11 @@ func (e *Engine) ListUSBAssignments(ref string) ([]types.VMUSBAssignment, error)
 	if err != nil {
 		return nil, err
 	}
+
 	if m.USB == nil {
 		return []types.VMUSBAssignment{}, nil
 	}
+
 	return m.USB, nil
 }
 
@@ -524,38 +604,47 @@ func (e *Engine) DetachUSB(ctx context.Context, ref, id string) error {
 	if _, err := uuid.Parse(id); err != nil {
 		return fmt.Errorf("invalid USB attachment ID")
 	}
+
 	m, err := e.vms.Resolve(ref)
 	if err != nil {
 		return err
 	}
+
 	lock, err := e.driver.LockContext(ctx, m.ID)
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = lock.Close() }()
 	r, err := e.openUSBRegistry(ctx)
 	if err != nil {
 		return err
 	}
+
 	defer r.close()
 	for i, claim := range r.claims {
 		if claim.Attachment.ID != id {
 			continue
 		}
+
 		if claim.Attachment.VMID != m.ID || claim.RunDir != e.paths.VMRunDir(m.ID) {
 			return fmt.Errorf("USB attachment does not belong to this VM")
 		}
+
 		generation, generationErr := usbGeneration(claim.RunDir)
 		if generationErr != nil && !errors.Is(generationErr, os.ErrNotExist) {
 			return generationErr
 		}
+
 		if generationErr == nil && generation == claim.Generation && e.driver.Status(m.ID).Phase == vm.PhaseRunning {
 			if err := e.driver.DetachUSB(m.ID, claim.QEMUID); err != nil {
 				return err
 			}
 		}
+
 		r.claims = append(r.claims[:i], r.claims[i+1:]...)
 		return r.save()
 	}
+
 	return fmt.Errorf("USB attachment not found; refresh the device list")
 }

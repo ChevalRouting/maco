@@ -49,6 +49,7 @@ func ParseClaims(secret []byte, token string) (*Claims, error) {
 	if len(token) == 0 || len(token) > MaxTokenBytes {
 		return nil, fmt.Errorf("invalid token length")
 	}
+
 	claims := &Claims{}
 	parsed, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (any, error) {
 		return secret, nil
@@ -56,8 +57,10 @@ func ParseClaims(secret []byte, token string) (*Claims, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if !parsed.Valid || claims.Subject == "" || claims.IssuedAt == nil {
 		return nil, fmt.Errorf("invalid token")
 	}
+
 	return claims, nil
 }

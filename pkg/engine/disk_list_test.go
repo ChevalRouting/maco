@@ -85,16 +85,19 @@ func TestDiskFirstBootBadge(t *testing.T) {
 	if primary.BootFirst || !second.BootFirst {
 		t.Fatalf("incorrect priority: %+v %+v", primary, second)
 	}
+
 	m.ISOs = []string{"installer"}
 	m.BootOrder = []string{"iso:installer", "disk:second", "disk"}
 	if describeDisk(m, "vm", "second.qcow2", "/second", 0).BootFirst {
 		t.Fatal("disk marked first when ISO boots first")
 	}
+
 	m.BootOrder = nil
 	m.ISOs = nil
 	if !describeDisk(m, "vm", "disk.qcow2", "/disk", 0).BootFirst {
 		t.Fatal("default first disk not marked")
 	}
+
 	if describeDisk(nil, "vm", "disk.qcow2", "/disk", 0).BootFirst {
 		t.Fatal("orphan marked first")
 	}

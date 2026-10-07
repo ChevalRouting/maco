@@ -6,11 +6,12 @@ interface MemoryEntryRowProps {
   value: number
   onValueChange: (mib: number) => void
   disabled?: boolean
+  stacked?: boolean
 }
 
 const decimal = /^\d+(\.\d+)?$/
 
-export function MemoryEntryRow({ id, value, onValueChange, disabled }: MemoryEntryRowProps) {
+export function MemoryEntryRow({ id, value, onValueChange, disabled, stacked }: MemoryEntryRowProps) {
   const [text, setText] = useState(String(value / 1024))
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export function MemoryEntryRow({ id, value, onValueChange, disabled }: MemoryEnt
     <ValidatedEntryRow
       id={id}
       title="Memory (GiB)"
+      stacked={stacked}
       required
       disabled={disabled}
       inputMode="decimal"

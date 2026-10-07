@@ -127,3 +127,53 @@ func (s *Server) removeDisk(w http.ResponseWriter, r *http.Request) {
 	params := engine.DiskParams{ID: chi.URLParam(r, "disk")}
 	s.submitJob(w, r, jobs.Payload{Action: "vm.disk.remove", Target: chi.URLParam(r, "id"), Disk: params})
 }
+
+// @Summary wipeDisk
+// @ID wipeDisk
+// @Description Erase all data on a VM disk by disk ID, replacing it with a blank disk of the same capacity while keeping it attached. Use "disk" as the disk ID for the boot disk. The VM must be stopped. This permanently destroys the disk contents. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
+// @Tags vms
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "id"
+// @Param disk path string true "disk"
+// @Success 202 {object} jobs.Job
+// @Failure 401 {object} ErrorResponse
+// @Failure 503 {object} ErrorResponse
+// @Router /api/vms/{id}/disks/{disk}/wipe [post]
+func (s *Server) wipeDisk(w http.ResponseWriter, r *http.Request) {
+	params := engine.DiskParams{ID: chi.URLParam(r, "disk")}
+	s.submitJob(w, r, jobs.Payload{Action: "vm.disk.wipe", Target: chi.URLParam(r, "id"), Disk: params})
+}
+
+// @Summary replaceDisk
+// @ID replaceDisk
+// @Description Replace a stopped VM's boot disk with a fresh copy of a Linux catalog image or disk image media. Use disk as the disk ID and image_id with a key from listCatalog or media: followed by an ID from listMedia. Catalog images download on demand. Permanently erases the existing boot disk; preserves guest setup for the next boot. Requires an administrator account.
+// @x-maco {"expose":true,"readOnly":false,"transport":"json","wait":{"operationId":"waitJob","idField":"id","parameter":"id"}}
+// @Tags vms
+// @Security BearerAuth
+// @Produce json
+// @Accept json
+// @Param id path string true "id"
+// @Param disk path string true "disk"
+// @Param body body engine.DiskParams true "Request"
+// @Success 202 {object} jobs.Job
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 503 {object} ErrorResponse
+// @Router /api/vms/{id}/disks/{disk}/replace [post]
+func (s *Server) replaceDisk(w http.ResponseWriter, r *http.Request) {
+	var params engine.DiskParams
+	if err := readJSON(r, &params); err != nil || params.ImageID == "" {
+		writeError(w, http.StatusBadRequest, "select a disk image")
+		return
+	}
+
+	params.ID = chi.URLParam(r, "disk")
+	if params.ID != "disk" {
+		writeError(w, http.StatusBadRequest, "only the boot disk can be replaced")
+		return
+	}
+
+	s.submitJob(w, r, jobs.Payload{Action: "vm.disk.replace", Target: chi.URLParam(r, "id"), Disk: params})
+}

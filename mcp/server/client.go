@@ -74,14 +74,17 @@ func (i *instance) requestOnce(ctx context.Context, method, path string, metadat
 		if _, err := form.CreateFormFile(metadata.Upload.Field, filepath.Base(path)); err != nil {
 			return nil, err
 		}
+
 		headerSize := framing.Len()
 		if err := form.Close(); err != nil {
 			return nil, err
 		}
+
 		contentLength = info.Size() + int64(framing.Len())
 		if contentLength > limit {
 			return nil, fmt.Errorf("file exceeds upload limit including multipart framing")
 		}
+
 		contentType = form.FormDataContentType()
 		body = io.MultiReader(bytes.NewReader(framing.Bytes()[:headerSize]), file, bytes.NewReader(framing.Bytes()[headerSize:]))
 	}
@@ -177,7 +180,7 @@ func readJobStream(reader io.Reader, metadata streamMetadata) (*mcp.CallToolResu
 				data.WriteByte('\n')
 			}
 
-			data.WriteString(strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " "))
+			_, _ = data.WriteString(strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " "))
 			if data.Len() > maxResponseBytes {
 				return nil, fmt.Errorf("job event exceeds response limit")
 			}

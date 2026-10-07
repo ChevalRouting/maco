@@ -48,6 +48,7 @@ func newImageListCommand() *cobra.Command {
 			for name, img := range image.Catalog {
 				fmt.Printf("%-22s %s\n", name, img.URL)
 			}
+
 			return nil
 		},
 	}

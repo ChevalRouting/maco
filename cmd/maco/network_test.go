@@ -22,6 +22,7 @@ func TestNetworkAndVMAttachment(t *testing.T) {
 	if err := eng().NetStore().Save(&types.NetworkManifest{ID: uuid.NewString(), Name: "lab", Mode: types.NetworkBridge, Address: "192.0.2.254/24", VLANs: []types.VLAN{{Parent: "en10", Tag: 123}}}); err != nil {
 		t.Fatal(err)
 	}
+
 	n, err := eng().NetStore().Resolve("lab")
 	if err != nil || n.Mode != types.NetworkBridge || n.VLANs[0].Tag != 123 {
 		t.Fatalf("bridge definition: %+v, %v", n, err)

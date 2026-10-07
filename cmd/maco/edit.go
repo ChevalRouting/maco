@@ -17,6 +17,7 @@ func editManifestLoop(ctx context.Context, original []byte, commit func([]byte) 
 	if err != nil {
 		return err
 	}
+
 	defer cleanup()
 
 	for {
@@ -39,7 +40,7 @@ func editManifestLoop(ctx context.Context, original []byte, commit func([]byte) 
 			return nil
 		}
 
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
 		if retryable && promptReedit() {
 			continue
 		}
@@ -55,12 +56,12 @@ func writeTempFile(content []byte) (string, func(), error) {
 	}
 
 	if _, err := tmp.Write(content); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		_ = os.Remove(tmp.Name())
 		return "", nil, fmt.Errorf("write temp file: %w", err)
 	}
 
-	tmp.Close()
+	_ = tmp.Close()
 	return tmp.Name(), func() { _ = os.Remove(tmp.Name()) }, nil
 }
 
@@ -84,7 +85,7 @@ func runEditor(ctx context.Context, path string) error {
 }
 
 func promptReedit() bool {
-	fmt.Fprint(os.Stderr, "invalid: [e]dit again or [x] abort? ")
+	_, _ = fmt.Fprint(os.Stderr, "invalid: [e]dit again or [x] abort? ")
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil {
 		return false

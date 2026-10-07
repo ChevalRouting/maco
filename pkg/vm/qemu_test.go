@@ -81,6 +81,7 @@ func TestMediaBootOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	joined := strings.Join(args, " ")
 	if !strings.Contains(joined, "scsi-hd,bus=scsi.0,drive=bootdisk,bootindex=2") || !strings.Contains(joined, "scsi-cd,bus=scsi.0,drive="+diskNodeName("installer")+",bootindex=1") || !strings.Contains(joined, "format=raw,readonly=on,file=/installer.iso") {
 		t.Fatalf("invalid media args: %s", joined)
@@ -93,20 +94,24 @@ func TestMultipleVMInterfaces(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	joined := strings.Join(args, " ")
 	for _, expected := range []string{"user,id=net0", "socket,id=net1,mcast=239.1.2.3:1234", "stream,id=net2,server=off,addr.type=unix,addr.path=/tmp/net2.sock", "id=net0,mac=" + MAC(spec.ID), "id=net1,mac=" + InterfaceMAC(spec.ID, "net1"), "id=net2,mac=" + InterfaceMAC(spec.ID, "net2")} {
 		if !strings.Contains(joined, expected) {
 			t.Fatalf("missing %s in %s", expected, joined)
 		}
 	}
+
 	if strings.Count(joined, "virtio-net-pci,") != 3 {
 		t.Fatal("incorrect adapter count")
 	}
+
 	spec.Interfaces = []InterfaceSpec{}
 	args, err = spec.buildArgs("/run")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if strings.Contains(strings.Join(args, " "), "virtio-net-pci") {
 		t.Fatal("empty interfaces created default NIC")
 	}
@@ -118,6 +123,7 @@ func TestIgnitionFwCfgArgs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	joined := strings.Join(args, " ")
 	if !strings.Contains(joined, "-fw_cfg name=opt/org.flatcar-linux/config,file=/run/config.ign") {
 		t.Fatalf("missing ignition fw_cfg: %s", joined)
@@ -135,5 +141,6 @@ func mustArgs(t *testing.T, spec Spec) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	return args
 }

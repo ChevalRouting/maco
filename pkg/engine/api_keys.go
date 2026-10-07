@@ -19,6 +19,7 @@ func generateAPIKey() (string, error) {
 	if _, err := rand.Read(secret); err != nil {
 		return "", err
 	}
+
 	return APIKeyPrefix + base64.RawURLEncoding.EncodeToString(secret), nil
 }
 

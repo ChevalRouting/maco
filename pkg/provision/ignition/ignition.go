@@ -96,6 +96,7 @@ func (c Config) easyButane() ([]byte, error) {
 	if c.Hostname != "" {
 		files = append(files, butaneFile{Path: "/etc/hostname", Mode: 0o644, Contents: butaneContents{Inline: c.Hostname + "\n"}})
 	}
+
 	if network := c.networkUnit(); network != "" {
 		files = append(files, butaneFile{Path: "/etc/systemd/network/00-maco.network", Mode: 0o644, Contents: butaneContents{Inline: network}})
 	}
@@ -115,16 +116,20 @@ func (c Config) networkUnit() string {
 	if len(c.Addresses) == 0 || c.MAC == "" {
 		return ""
 	}
+
 	unit := "[Match]\nMACAddress=" + c.MAC + "\n\n[Network]\n"
 	for _, address := range c.Addresses {
 		unit += "Address=" + address + "\n"
 	}
+
 	if c.Gateway != "" {
 		unit += "Gateway=" + c.Gateway + "\n"
 	}
+
 	for _, ns := range c.Nameservers {
 		unit += "DNS=" + ns + "\n"
 	}
+
 	return unit
 }
 
@@ -133,8 +138,10 @@ func transpile(butaneYAML []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("butane: %w", err)
 	}
+
 	if report.IsFatal() {
 		return nil, fmt.Errorf("butane: %s", report.String())
 	}
+
 	return ign, nil
 }

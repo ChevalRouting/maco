@@ -24,6 +24,7 @@ func pageParams(w http.ResponseWriter, r *http.Request) (page, pageSize int, ok 
 			writeError(w, http.StatusBadRequest, "invalid page")
 			return 0, 0, false
 		}
+
 		page = n
 	}
 
@@ -33,6 +34,7 @@ func pageParams(w http.ResponseWriter, r *http.Request) (page, pageSize int, ok 
 			writeError(w, http.StatusBadRequest, "page_size must be between 1 and 100")
 			return 0, 0, false
 		}
+
 		pageSize = n
 	}
 
@@ -45,6 +47,7 @@ func paginate[T any](items []T, page, pageSize int) Page[T] {
 	if totalPages < 1 {
 		totalPages = 1
 	}
+
 	if page > totalPages {
 		page = totalPages
 	}
@@ -53,6 +56,7 @@ func paginate[T any](items []T, page, pageSize int) Page[T] {
 	if start < 0 {
 		start = 0
 	}
+
 	if start > total {
 		start = total
 	}

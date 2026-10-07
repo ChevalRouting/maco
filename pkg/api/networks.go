@@ -106,5 +106,6 @@ func (s *Server) updateNetwork(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
+
 	s.submitJob(w, r, jobs.Payload{Action: "network.update", Target: chi.URLParam(r, "id"), Network: params})
 }

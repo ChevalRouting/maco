@@ -23,33 +23,42 @@ func resolveVLANWith(host vlanHost, device string, owned bool, parent string, ta
 			if findErr != nil {
 				return "", false, findErr
 			}
+
 			if matching != "" && matching != device {
 				return matching, false, nil
 			}
+
 			return "", false, err
 		}
 	}
+
 	matching, err := host.find(parent, tag)
 	if err != nil {
 		return "", false, err
 	}
+
 	if matching != "" {
 		return matching, false, nil
 	}
+
 	device, err = host.create("vlan")
 	if err != nil {
 		return "", false, err
 	}
+
 	if err := host.configure(device, parent, tag); err != nil {
 		_ = host.destroy(device)
 		matching, findErr := host.find(parent, tag)
 		if findErr != nil {
 			return "", false, findErr
 		}
+
 		if matching != "" {
 			return matching, false, nil
 		}
+
 		return "", false, err
 	}
+
 	return device, true, nil
 }

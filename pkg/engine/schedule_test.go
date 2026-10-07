@@ -24,6 +24,7 @@ func TestBackupScheduleRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !saved.Enabled || saved.IntervalHours != 6 || saved.KeepLast != 3 || saved.MaxAgeDays != 30 {
 		t.Fatalf("unexpected saved schedule: %+v", saved)
 	}
@@ -32,6 +33,7 @@ func TestBackupScheduleRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if got.KeepLast != 3 || got.IntervalHours != 6 {
 		t.Fatalf("schedule not persisted: %+v", got)
 	}
@@ -41,6 +43,7 @@ func TestPruneBackupsKeepLast(t *testing.T) {
 	if _, err := exec.LookPath("qemu-img"); err != nil {
 		t.Skip("qemu-img not installed")
 	}
+
 	e := testEngine(t)
 	m := &types.VMManifest{ID: uuid.NewString(), Name: "zeta", Image: "img", CPUs: 1, MemoryMiB: 128, DiskSizeGiB: 10}
 	seedVMDisks(t, e, m, []string{"disk.qcow2"})
@@ -55,6 +58,7 @@ func TestPruneBackupsKeepLast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if deleted != 2 {
 		t.Fatalf("expected 2 backups pruned, got %d", deleted)
 	}
@@ -63,6 +67,7 @@ func TestPruneBackupsKeepLast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(backups) != 1 {
 		t.Fatalf("expected 1 backup kept, got %d", len(backups))
 	}

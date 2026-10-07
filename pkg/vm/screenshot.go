@@ -12,6 +12,7 @@ func (d *Driver) Screenshot(id string) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = lock.Close() }()
 
 	if d.Status(id).Phase != PhaseRunning {
@@ -22,6 +23,7 @@ func (d *Driver) Screenshot(id string) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = client.close() }()
 
 	if err := client.conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {

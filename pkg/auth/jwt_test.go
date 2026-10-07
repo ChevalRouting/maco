@@ -16,15 +16,18 @@ func TestTokenValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	claims, err := ParseClaims(secret, token)
 	if err != nil || claims.UserID != user.ID || claims.Credentials != CredentialVersion(user) {
 		t.Fatalf("claims: %+v %v", claims, err)
 	}
+
 	for _, bad := range []string{"", strings.Repeat(".", MaxTokenBytes+1), token + "."} {
 		if _, err := ParseClaims(secret, bad); err == nil {
 			t.Fatal("accepted malformed token")
 		}
 	}
+
 	for _, tc := range []struct {
 		method jwt.SigningMethod
 		claims jwt.RegisteredClaims
@@ -37,6 +40,7 @@ func TestTokenValidation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if _, err := ParseClaims(secret, bad); err == nil {
 			t.Fatal("accepted invalid claims or algorithm")
 		}

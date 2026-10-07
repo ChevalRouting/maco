@@ -36,6 +36,7 @@ func TestLiveDiskAttachAndGrow(t *testing.T) {
 	if err := process.Start(); err != nil {
 		t.Fatal(err)
 	}
+
 	defer func() { _ = process.Process.Kill(); _ = process.Wait() }()
 
 	deadline := time.Now().Add(5 * time.Second)
@@ -67,6 +68,7 @@ func TestLiveDiskAttachAndGrow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer func() { _ = client.close() }()
 
 	data, err := client.execute("query-block")

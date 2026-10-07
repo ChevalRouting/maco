@@ -25,6 +25,7 @@ func (db *DB) SetBackupSchedule(ctx context.Context, schedule types.BackupSchedu
 	if schedule.Enabled {
 		enabled = 1
 	}
+
 	return db.queries.UpsertBackupSchedule(ctx, generated.UpsertBackupScheduleParams{
 		VmID:          schedule.VMID,
 		Enabled:       enabled,
@@ -40,9 +41,11 @@ func (db *DB) GetBackupSchedule(ctx context.Context, vmID string) (types.BackupS
 	if errors.Is(err, sql.ErrNoRows) {
 		return types.BackupSchedule{}, false, nil
 	}
+
 	if err != nil {
 		return types.BackupSchedule{}, false, err
 	}
+
 	return backupSchedule(row), true, nil
 }
 
@@ -51,10 +54,12 @@ func (db *DB) ListBackupSchedules(ctx context.Context) ([]types.BackupSchedule, 
 	if err != nil {
 		return nil, err
 	}
+
 	schedules := make([]types.BackupSchedule, 0, len(rows))
 	for _, row := range rows {
 		schedules = append(schedules, backupSchedule(row))
 	}
+
 	return schedules, nil
 }
 

@@ -38,6 +38,10 @@ func newInstallCommand() *cobra.Command {
 				return fmt.Errorf("--tls-cert and --tls-key must be provided together")
 			}
 
+			if err := cli.Paths.EnsureDirs(); err != nil {
+				return fmt.Errorf("create data dir: %w", err)
+			}
+
 			source, err := os.Executable()
 			if err != nil {
 				return err
@@ -47,18 +51,18 @@ func newInstallCommand() *cobra.Command {
 			if err := installBinary(source, binary); err != nil {
 				return fmt.Errorf("install maco: %w", err)
 			}
+
 			log.Info().Str("path", binary).Msg("installed maco")
 
-			helperDst := filepath.Join(installPrefix, nethelper.Name)
-			if err := installHelper(source, helper, helperDst); err != nil {
-				return fmt.Errorf("install %s: %w", nethelper.Name, err)
+			if err := installNetHelper(source, helper); err != nil {
+				return err
 			}
-			log.Info().Str("path", helperDst).Msg("installed " + nethelper.Name)
 
 			if tlsCert == "" {
 				if err := tlscert.EnsureSelfSigned(cli.Paths.TLSCertPath(), cli.Paths.TLSKeyPath()); err != nil {
 					return fmt.Errorf("generate TLS certificate: %w", err)
 				}
+
 				log.Info().Str("cert", cli.Paths.TLSCertPath()).Msg("generated self-signed TLS certificate")
 			} else {
 				log.Info().Str("cert", tlsCert).Msg("using provided TLS certificate")
@@ -120,7 +124,8 @@ func installBinary(source, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+
+	defer func() { _ = in.Close() }()
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
@@ -130,11 +135,12 @@ func installBinary(source, dst string) error {
 	if err != nil {
 		return err
 	}
+
 	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	if _, err := io.Copy(tmp, in); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return err
 	}
 

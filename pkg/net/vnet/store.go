@@ -47,6 +47,7 @@ func (s *Store) Save(n *types.NetworkManifest) error {
 	if err := storage.ValidateID(n.ID); err != nil {
 		return err
 	}
+
 	if err := s.check(n); err != nil {
 		return fmt.Errorf("invalid network: %w", err)
 	}
@@ -67,6 +68,7 @@ func (s *Store) Load(id string) (*types.NetworkManifest, error) {
 	if err := storage.ValidateID(id); err != nil {
 		return nil, err
 	}
+
 	data, err := os.ReadFile(s.path(id))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, ErrNotFound
@@ -80,9 +82,11 @@ func (s *Store) Load(id string) (*types.NetworkManifest, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if n.ID != id {
 		return nil, fmt.Errorf("network ID does not match filename")
 	}
+
 	return n, nil
 }
 
@@ -166,6 +170,7 @@ func (s *Store) check(n *types.NetworkManifest) error {
 	if n.Mode != types.NetworkBridged && n.Mode != types.NetworkVmnetBridged && n.Uplink != "" {
 		return fmt.Errorf("uplink requires vmnet-bridged mode")
 	}
+
 	if n.Mode != types.NetworkVLAN && (n.Parent != "" || n.Tag != 0) {
 		return fmt.Errorf("parent and tag require vlan mode; use vlans for bridge VLAN members")
 	}
@@ -241,6 +246,7 @@ func (s *Store) check(n *types.NetworkManifest) error {
 	if n.Uplink != "" {
 		interfaces = append(interfaces, n.Uplink)
 	}
+
 	interfaces = append(interfaces, n.AppliedMembers...)
 	for _, vlan := range n.VLANs {
 		interfaces = append(interfaces, vlan.Parent)

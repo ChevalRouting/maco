@@ -14,14 +14,17 @@ func defaultConfigPath() string {
 	if p := os.Getenv("MACO_CLIENT_CONFIG"); p != "" {
 		return p
 	}
+
 	base := os.Getenv("XDG_CONFIG_HOME")
 	if base == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "maco-client.yml"
 		}
+
 		base = filepath.Join(home, ".config")
 	}
+
 	return filepath.Join(base, "maco", "client.yml")
 }
 

@@ -18,6 +18,7 @@ func serveMockAgent(t *testing.T, sock string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() { _ = listener.Close() })
 
 	replies := map[string]string{
@@ -35,6 +36,7 @@ func serveMockAgent(t *testing.T, sock string) {
 		if err != nil {
 			return
 		}
+
 		defer func() { _ = conn.Close() }()
 
 		reader := bufio.NewReader(conn)
@@ -59,6 +61,7 @@ func serveMockAgent(t *testing.T, sock string) {
 				_, _ = conn.Write([]byte(`{"return":` + string(cmd.Arguments.ID) + "}\n"))
 				continue
 			}
+
 			if reply, ok := replies[cmd.Execute]; ok {
 				_, _ = conn.Write([]byte(reply + "\n"))
 			}
@@ -74,6 +77,7 @@ func TestGuestAgentClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial/sync: %v", err)
 	}
+
 	defer func() { _ = client.close() }()
 
 	var base struct {
@@ -106,6 +110,7 @@ func TestGuestAgentClient(t *testing.T) {
 	if err := client.execute("guest-fsfreeze-freeze", nil, nil); err != nil {
 		t.Fatalf("freeze: %v", err)
 	}
+
 	if err := client.execute("guest-fsfreeze-thaw", nil, nil); err != nil {
 		t.Fatalf("thaw: %v", err)
 	}
@@ -117,6 +122,7 @@ func serveFreezeAgent(t *testing.T, sock string, freezeFailures int32) *int32 {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() { _ = listener.Close() })
 
 	remaining := freezeFailures
@@ -130,6 +136,7 @@ func serveFreezeAgent(t *testing.T, sock string, freezeFailures int32) *int32 {
 			if err != nil {
 				return
 			}
+
 			var cmd struct {
 				Execute   string `json:"execute"`
 				Arguments struct {
@@ -139,6 +146,7 @@ func serveFreezeAgent(t *testing.T, sock string, freezeFailures int32) *int32 {
 			if json.Unmarshal(bytes.TrimLeft(line, "\xff"), &cmd) != nil {
 				return
 			}
+
 			switch cmd.Execute {
 			case "guest-sync-delimited":
 				_, _ = conn.Write([]byte{0xff})
@@ -162,6 +170,7 @@ func serveFreezeAgent(t *testing.T, sock string, freezeFailures int32) *int32 {
 			if err != nil {
 				return
 			}
+
 			go handle(conn)
 		}
 	}()
@@ -174,12 +183,14 @@ func newFreezeTestDriver(t *testing.T) (*Driver, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	d := NewDriver(dir)
 	id := "vm"
 	if err := os.MkdirAll(d.vmRunDir(id), 0o700); err != nil {
 		t.Fatal(err)
 	}
+
 	return d, id
 }
 
@@ -191,6 +202,7 @@ func TestFreezeGuestRequiresThawOnError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected freeze error")
 	}
+
 	if !froze {
 		t.Fatal("freeze error must still report froze=true so the caller thaws the guest")
 	}
@@ -202,6 +214,7 @@ func TestFreezeGuestNoAgent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("no-agent freeze should be a no-op: %v", err)
 	}
+
 	if froze {
 		t.Fatal("without an agent no freeze happens and no thaw is required")
 	}

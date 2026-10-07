@@ -29,6 +29,7 @@ func (s *Server) hostConsole(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+
 	defer release()
 	defer func() { _ = ws.CloseNow() }()
 
@@ -53,6 +54,7 @@ func (s *Server) hostConsole(w http.ResponseWriter, r *http.Request) {
 		_ = ws.Close(websocket.StatusInternalError, "shell unavailable")
 		return
 	}
+
 	defer func() {
 		_ = ptmx.Close()
 		_ = cmd.Process.Kill()
@@ -72,6 +74,7 @@ func (s *Server) hostConsole(w http.ResponseWriter, r *http.Request) {
 			if json.Unmarshal(data, &size) == nil && size.Cols > 0 && size.Rows > 0 {
 				_ = pty.Setsize(ptmx, &pty.Winsize{Cols: size.Cols, Rows: size.Rows})
 			}
+
 			continue
 		}
 
@@ -92,6 +95,7 @@ func streamShellOutput(ctx context.Context, ws *websocket.Conn, ptmx *os.File, s
 				return
 			}
 		}
+
 		if err != nil {
 			return
 		}

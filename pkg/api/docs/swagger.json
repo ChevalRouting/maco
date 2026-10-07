@@ -1493,7 +1493,7 @@
                         "type": "integer"
                     },
                     "disk_size_gib": {
-                        "minimum": 1,
+                        "minimum": 0,
                         "type": "integer"
                     },
                     "disks": {
@@ -5594,6 +5594,183 @@
                     }
                 ],
                 "summary": "growDisk",
+                "tags": [
+                    "vms"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
+            }
+        },
+        "/api/vms/{id}/disks/{disk}/replace": {
+            "post": {
+                "description": "Replace a stopped VM's boot disk with a fresh copy of a Linux catalog image or disk image media. Use disk as the disk ID and image_id with a key from listCatalog or media: followed by an ID from listMedia. Catalog images download on demand. Permanently erases the existing boot disk; preserves guest setup for the next boot. Requires an administrator account.",
+                "operationId": "replaceDisk",
+                "parameters": [
+                    {
+                        "description": "id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "disk",
+                        "in": "path",
+                        "name": "disk",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/engine.DiskParams",
+                                "summary": "body",
+                                "description": "Request"
+                            }
+                        }
+                    },
+                    "description": "Request",
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/jobs.Job"
+                                }
+                            }
+                        },
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Service Unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "replaceDisk",
+                "tags": [
+                    "vms"
+                ],
+                "x-maco": {
+                    "expose": true,
+                    "readOnly": false,
+                    "transport": "json",
+                    "wait": {
+                        "idField": "id",
+                        "operationId": "waitJob",
+                        "parameter": "id"
+                    }
+                }
+            }
+        },
+        "/api/vms/{id}/disks/{disk}/wipe": {
+            "post": {
+                "description": "Erase all data on a VM disk by disk ID, replacing it with a blank disk of the same capacity while keeping it attached. Use \"disk\" as the disk ID for the boot disk. The VM must be stopped. This permanently destroys the disk contents. Requires an administrator account.",
+                "operationId": "wipeDisk",
+                "parameters": [
+                    {
+                        "description": "id",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "disk",
+                        "in": "path",
+                        "name": "disk",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/jobs.Job"
+                                }
+                            }
+                        },
+                        "description": "Accepted"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Unauthorized"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/api.ErrorResponse"
+                                }
+                            }
+                        },
+                        "description": "Service Unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "summary": "wipeDisk",
                 "tags": [
                     "vms"
                 ],

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/m-vinc/maco/pkg/types"
@@ -38,6 +39,7 @@ func Provisioning(img Image) []types.GuestCapability {
 	if len(img.Provisioning) == 0 {
 		return DefaultProvisioning()
 	}
+
 	return img.Provisioning
 }
 
@@ -47,7 +49,7 @@ type DiskInfo struct {
 	ActualSize  int64  `json:"actual-size"`
 }
 
-var Catalog = map[string]Image{
+var catalogARM64 = map[string]Image{
 	"ubuntu-24.04-arm64": {
 		Name:        "ubuntu-24.04-arm64",
 		Distro:      "ubuntu",
@@ -141,6 +143,110 @@ var Catalog = map[string]Image{
 	},
 }
 
+var catalogAMD64 = map[string]Image{
+	"ubuntu-24.04-amd64": {
+		Name:        "ubuntu-24.04-amd64",
+		Distro:      "ubuntu",
+		Version:     "24.04 LTS",
+		Arch:        "amd64",
+		DisplayName: "Ubuntu 24.04 LTS",
+		Tags:        []string{"Debian-like", "LTS"},
+		Description: "Noble Numbat cloud image",
+		URL:         "https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-amd64.img",
+	},
+	"ubuntu-22.04-amd64": {
+		Name:        "ubuntu-22.04-amd64",
+		Distro:      "ubuntu",
+		Version:     "22.04 LTS",
+		Arch:        "amd64",
+		DisplayName: "Ubuntu 22.04 LTS",
+		Tags:        []string{"Debian-like", "LTS"},
+		Description: "Jammy Jellyfish cloud image",
+		URL:         "https://cloud-images.ubuntu.com/releases/jammy/release/ubuntu-22.04-server-cloudimg-amd64.img",
+	},
+	"debian-12-amd64": {
+		Name:        "debian-12-amd64",
+		Distro:      "debian",
+		Version:     "12",
+		Arch:        "amd64",
+		DisplayName: "Debian 12",
+		Tags:        []string{"Debian-like"},
+		Description: "Bookworm generic cloud image",
+		URL:         "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2",
+	},
+	"fedora-44-amd64": {
+		Name:        "fedora-44-amd64",
+		Distro:      "fedora",
+		Version:     "44",
+		Arch:        "amd64",
+		DisplayName: "Fedora Cloud 44",
+		Tags:        []string{"RPM"},
+		Description: "Fedora Cloud Base generic image",
+		URL:         "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-44-1.7.x86_64.qcow2",
+	},
+	"rocky-9-amd64": {
+		Name:        "rocky-9-amd64",
+		Distro:      "rocky-linux",
+		Version:     "9",
+		Arch:        "amd64",
+		DisplayName: "Rocky Linux 9",
+		Tags:        []string{"RHEL-like"},
+		Description: "Generic cloud image",
+		URL:         "https://dl.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud.latest.x86_64.qcow2",
+	},
+	"rocky-10-amd64": {
+		Name:        "rocky-10-amd64",
+		Distro:      "rocky-linux",
+		Version:     "10",
+		Arch:        "amd64",
+		DisplayName: "Rocky Linux 10",
+		Tags:        []string{"RHEL-like"},
+		Description: "Generic cloud image",
+		URL:         "https://dl.rockylinux.org/pub/rocky/10/images/x86_64/Rocky-10-GenericCloud.latest.x86_64.qcow2",
+	},
+	"almalinux-9-amd64": {
+		Name:        "almalinux-9-amd64",
+		Distro:      "almalinux",
+		Version:     "9",
+		Arch:        "amd64",
+		DisplayName: "AlmaLinux 9",
+		Tags:        []string{"RHEL-like"},
+		Description: "Generic cloud image",
+		URL:         "https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2",
+	},
+	"alpine-3.23-amd64": {
+		Name:        "alpine-3.23-amd64",
+		Distro:      "alpine",
+		Version:     "3.23",
+		Arch:        "amd64",
+		DisplayName: "Alpine Linux 3.23",
+		Tags:        []string{"Lightweight", "musl"},
+		Description: "Cloud image with cloud-init",
+		URL:         "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/nocloud_alpine-3.23.4-x86_64-uefi-cloudinit-r0.qcow2",
+	},
+	"flatcar-stable-amd64": {
+		Name:         "flatcar-stable-amd64",
+		Distro:       "flatcar",
+		Version:      "stable",
+		Arch:         "amd64",
+		DisplayName:  "Flatcar Container Linux",
+		Tags:         []string{"Container", "Ignition", "podman"},
+		Description:  "Immutable container host provisioned with Butane/Ignition",
+		URL:          "https://stable.release.flatcar-linux.net/amd64-usr/current/flatcar_production_qemu_uefi_image.img",
+		Provisioning: ignitionProvisioning,
+	},
+}
+
+var Catalog = selectCatalog()
+
+func selectCatalog() map[string]Image {
+	if runtime.GOARCH == "amd64" {
+		return catalogAMD64
+	}
+
+	return catalogARM64
+}
+
 func Lookup(name string) (Image, error) {
 	img, ok := Catalog[name]
 	if !ok {
@@ -159,6 +265,7 @@ func CachedSize(imagesDir string, img Image) (int64, bool) {
 	if err != nil || fi.Size() == 0 {
 		return 0, false
 	}
+
 	return fi.Size(), true
 }
 
@@ -167,6 +274,7 @@ func RemoveCached(imagesDir string, img Image) error {
 	if os.IsNotExist(err) {
 		return nil
 	}
+
 	return err
 }
 
@@ -212,6 +320,7 @@ func download(ctx context.Context, url, dst string) error {
 	if err != nil {
 		return fmt.Errorf("download %s: %w", url, err)
 	}
+
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
@@ -243,6 +352,7 @@ func verifySHA256(path, want string) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = f.Close() }()
 
 	h := sha256.New()

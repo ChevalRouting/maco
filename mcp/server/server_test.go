@@ -27,6 +27,7 @@ func connectTest(t *testing.T, handler http.HandlerFunc) (*mcp.ClientSession, *S
 			_, _ = w.Write(testContract)
 			return
 		}
+
 		handler(w, r)
 	}))
 	t.Cleanup(upstream.Close)
@@ -138,9 +139,9 @@ func TestRequests(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.Method + " " + r.URL.Path {
 		case "GET /api/vms":
-			fmt.Fprint(w, `[{"phase":"running"}]`)
+			_, _ = fmt.Fprint(w, `[{"phase":"running"}]`)
 		case "GET /api/vms/vm one":
-			fmt.Fprint(w, `{"phase":"stopped"}`)
+			_, _ = fmt.Fprint(w, `{"phase":"stopped"}`)
 		case "POST /api/vms":
 			data, _ := io.ReadAll(r.Body)
 			if string(data) != `{"cpus":2,"disk_size_gib":20,"memory_mib":2048,"name":"new-vm","username":"maco"}` {
@@ -152,16 +153,16 @@ func TestRequests(t *testing.T) {
 			}
 
 			w.WriteHeader(202)
-			fmt.Fprint(w, `{"id":"job-1","state":"pending"}`)
+			_, _ = fmt.Fprint(w, `{"id":"job-1","state":"pending"}`)
 		case "POST /api/vms/vm-1/backups":
 			w.WriteHeader(202)
-			fmt.Fprint(w, `{"id":"backup-job"}`)
+			_, _ = fmt.Fprint(w, `{"id":"backup-job"}`)
 		case "GET /api/jobs":
 			if r.URL.Query().Get("search") != "a&b" || r.URL.Query().Get("page") != "2" {
 				t.Error(r.URL.RawQuery)
 			}
 
-			fmt.Fprint(w, `{"items":[]}`)
+			_, _ = fmt.Fprint(w, `{"items":[]}`)
 		case "DELETE /api/vms/vm-1/backups/2026-09-26":
 			w.WriteHeader(204)
 		default:
@@ -220,10 +221,10 @@ func TestSpecialResponses(t *testing.T) {
 			_, _ = w.Write([]byte("png-test"))
 		case "/api/jobs/job/wait":
 			w.Header().Set("Content-Type", "text/event-stream")
-			fmt.Fprint(w, "event: update\ndata: {\"state\":\"active\"}\n\nevent: done\ndata: {\"state\":\"succeeded\"}\n\n")
+			_, _ = fmt.Fprint(w, "event: update\ndata: {\"state\":\"active\"}\n\nevent: done\ndata: {\"state\":\"succeeded\"}\n\n")
 		default:
 			w.WriteHeader(403)
-			fmt.Fprint(w, `{"error":"administrator role required"}`)
+			_, _ = fmt.Fprint(w, `{"error":"administrator role required"}`)
 		}
 	})
 	preview := call(t, cs, "previewVM", map[string]any{"instance": "test", "id": "vm"})
@@ -267,7 +268,7 @@ func TestUpload(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"id":"media-1"}`)
+		_, _ = fmt.Fprint(w, `{"id":"media-1"}`)
 	})
 	file := filepath.Join(t.TempDir(), "test.iso")
 	if err := os.WriteFile(file, []byte("iso-content"), 0600); err != nil {
@@ -339,12 +340,13 @@ func TestActionWaitsForReturnedJob(t *testing.T) {
 			if len(data) != 0 || r.URL.RawQuery != "" {
 				t.Error("wait leaked into API request")
 			}
+
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(202)
-			fmt.Fprint(w, `{"id":"returned-job","state":"pending"}`)
+			_, _ = fmt.Fprint(w, `{"id":"returned-job","state":"pending"}`)
 		case "/api/jobs/returned-job/wait":
 			w.Header().Set("Content-Type", "text/event-stream")
-			fmt.Fprint(w, "event: update\ndata: {\"state\":\"active\"}\n\nevent: done\ndata: {\"id\":\"returned-job\",\"state\":\"succeeded\",\"result\":{\"backup\":\"saved\"}}\n\n")
+			_, _ = fmt.Fprint(w, "event: update\ndata: {\"state\":\"active\"}\n\nevent: done\ndata: {\"id\":\"returned-job\",\"state\":\"succeeded\",\"result\":{\"backup\":\"saved\"}}\n\n")
 		default:
 			t.Errorf("unexpected request: %s", r.URL)
 		}
@@ -358,6 +360,7 @@ func TestActionWaitsForReturnedJob(t *testing.T) {
 	if !strings.Contains(text, `"state":"succeeded"`) || !strings.Contains(text, `"backup":"saved"`) {
 		t.Fatal(text)
 	}
+
 	if strings.Join(requests, ",") != "POST /api/vms/vm-1/backups,GET /api/jobs/returned-job/wait" {
 		t.Fatal(requests)
 	}
@@ -371,28 +374,32 @@ func TestActionWaitFailure(t *testing.T) {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(202)
 					if mode == "missing-id" {
-						fmt.Fprint(w, `{}`)
+						_, _ = fmt.Fprint(w, `{}`)
 						return
 					}
-					fmt.Fprint(w, `{"id":"job-42","state":"pending"}`)
+
+					_, _ = fmt.Fprint(w, `{"id":"job-42","state":"pending"}`)
 					return
 				}
 
 				if mode == "missing-id" {
 					t.Error("wait called without job ID")
 				}
+
 				if r.URL.Path != "/api/jobs/job-42/wait" {
 					t.Error(r.URL.Path)
 				}
+
 				w.Header().Set("Content-Type", "text/event-stream")
 				if mode == "failed-job" {
-					fmt.Fprint(w, "event: done\ndata: {\"id\":\"job-42\",\"state\":\"failed\",\"error\":\"backup failed\"}\n\n")
+					_, _ = fmt.Fprint(w, "event: done\ndata: {\"id\":\"job-42\",\"state\":\"failed\",\"error\":\"backup failed\"}\n\n")
 				}
 			})
 			result := call(t, cs, "createBackup", map[string]any{"instance": "test", "id": "vm", "wait": true})
 			if !result.IsError {
 				t.Fatal("expected wait failure")
 			}
+
 			text := result.Content[0].(*mcp.TextContent).Text
 			if mode != "missing-id" && !strings.Contains(text, "job-42") {
 				t.Fatal("lost submitted job ID: " + text)
@@ -406,9 +413,10 @@ func TestActionWithoutWaitReturnsQueuedJob(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Error("unexpected wait request")
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(202)
-		fmt.Fprint(w, `{"id":"job-42","state":"pending"}`)
+		_, _ = fmt.Fprint(w, `{"id":"job-42","state":"pending"}`)
 	})
 	for _, args := range []map[string]any{
 		{"instance": "test", "id": "vm"},

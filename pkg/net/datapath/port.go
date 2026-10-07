@@ -1,3 +1,5 @@
+//go:build darwin
+
 package datapath
 
 import (
@@ -7,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -57,11 +60,13 @@ func Start(runDir, bridge string) error {
 
 	args := []string{"network-port", "--run-dir", runDir, "--bridge", bridge, "--uid", strconv.Itoa(os.Getuid()), "--gid", strconv.Itoa(os.Getgid())}
 	command := exec.Command(executable, args...)
+	command.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	logFile, err := os.OpenFile(filepath.Join(runDir, "network.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = logFile.Close() }()
 
 	command.Stdin = os.Stdin

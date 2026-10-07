@@ -48,6 +48,7 @@ func (s *Server) streamVMConsole(w http.ResponseWriter, r *http.Request, graphic
 	if err != nil {
 		return
 	}
+
 	defer release()
 	defer func() { _ = ws.CloseNow() }()
 
@@ -73,6 +74,7 @@ func (s *Server) streamVMConsole(w http.ResponseWriter, r *http.Request, graphic
 		_ = ws.Close(websocket.StatusInternalError, "console unavailable")
 		return
 	}
+
 	defer func() { _ = conn.Close() }()
 
 	ctx, stop := context.WithCancel(r.Context())
@@ -103,6 +105,7 @@ func replaySerial(ctx context.Context, ws *websocket.Conn, path string) error {
 	if err != nil {
 		return nil
 	}
+
 	defer func() { _ = file.Close() }()
 
 	info, err := file.Stat()

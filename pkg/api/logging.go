@@ -24,6 +24,7 @@ func (c *cappedBuffer) Write(p []byte) (int, error) {
 			c.buf.Write(p)
 		}
 	}
+
 	return len(p), nil
 }
 
@@ -61,6 +62,7 @@ func requestLogger(next http.Handler) http.Handler {
 				event = event.Str("response", message)
 			}
 		}
+
 		event.Msg("request")
 	})
 }
@@ -72,9 +74,11 @@ func recoverPanics(next http.Handler) http.Handler {
 			if rec == nil {
 				return
 			}
+
 			if rec == http.ErrAbortHandler {
 				panic(rec)
 			}
+
 			log.Error().
 				Interface("panic", rec).
 				Str("method", r.Method).

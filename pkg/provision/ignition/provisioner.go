@@ -22,6 +22,7 @@ func (Provisioner) Render(p provision.Params) ([]provision.File, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return []provision.File{{Name: "config.bu", Content: string(doc)}}, nil
 }
 
@@ -37,12 +38,15 @@ func (Provisioner) Deliver(dir string, files []provision.File) (provision.Delive
 	if err != nil {
 		return provision.Delivery{}, err
 	}
+
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return provision.Delivery{}, err
 	}
+
 	ignPath := filepath.Join(dir, "config.ign")
 	if err := os.WriteFile(ignPath, ign, 0o600); err != nil {
 		return provision.Delivery{}, err
 	}
+
 	return provision.Delivery{IgnitionPath: ignPath}, nil
 }

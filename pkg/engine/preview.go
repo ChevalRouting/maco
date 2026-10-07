@@ -15,6 +15,7 @@ func (e *Engine) captureInitialPreview(ctx context.Context, id string) {
 		return
 	case <-timer.C:
 	}
+
 	if err := e.ScreenshotVM(id); err != nil {
 		log.Ctx(ctx).Warn().Err(err).Str("vm", id).Msg("Initial VM preview unavailable")
 	}

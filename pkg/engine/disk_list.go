@@ -39,6 +39,7 @@ func (e *Engine) ListDisks() ([]DiskView, error) {
 		if os.IsNotExist(err) {
 			return []DiskView{}, nil
 		}
+
 		return nil, err
 	}
 
@@ -73,9 +74,11 @@ func (e *Engine) ListDisks() ([]DiskView, error) {
 		if views[a].Orphaned != views[b].Orphaned {
 			return views[a].Orphaned
 		}
+
 		if views[a].VMName != views[b].VMName {
 			return views[a].VMName < views[b].VMName
 		}
+
 		return views[a].Name < views[b].Name
 	})
 
@@ -106,7 +109,9 @@ func describeDisk(owner *types.VMManifest, vmID, file, path string, size int64) 
 	if file == "disk.qcow2" {
 		device = "disk"
 	}
-	view.BootFirst = owner.EffectiveBootOrder()[0] == device
+
+	order := owner.EffectiveBootOrder()
+	view.BootFirst = len(order) > 0 && order[0] == device
 	if view.Kind == "boot" {
 		view.Name = "Disk 1"
 		view.CapacityGiB = owner.DiskSizeGiB

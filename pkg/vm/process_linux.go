@@ -13,13 +13,16 @@ func processIdentity(pid int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	end := strings.LastIndex(string(data), ")")
 	if end < 0 {
 		return "", fmt.Errorf("invalid process stat")
 	}
+
 	fields := strings.Fields(string(data)[end+1:])
 	if len(fields) < 20 {
 		return "", fmt.Errorf("invalid process stat")
 	}
+
 	return fmt.Sprintf("%d:%s", pid, fields[19]), nil
 }

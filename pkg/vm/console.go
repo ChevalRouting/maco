@@ -24,9 +24,10 @@ func (d *Driver) Console(id string) error {
 	if err != nil {
 		return fmt.Errorf("connect console: %w", err)
 	}
-	defer conn.Close()
 
-	fmt.Fprintln(os.Stderr, "connected to console (Ctrl+A Q to quit)")
+	defer func() { _ = conn.Close() }()
+
+	_, _ = fmt.Fprintln(os.Stderr, "connected to console (Ctrl+A Q to quit)")
 
 	fd := int(os.Stdin.Fd())
 	if term.IsTerminal(fd) {
@@ -34,6 +35,7 @@ func (d *Driver) Console(id string) error {
 		if err != nil {
 			return err
 		}
+
 		defer func() { _ = term.Restore(fd, state) }()
 	}
 

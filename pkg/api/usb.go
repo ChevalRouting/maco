@@ -27,6 +27,7 @@ func (s *Server) listUSBDevices(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
+
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -48,6 +49,7 @@ func (s *Server) listVMUSB(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -74,19 +76,23 @@ func (s *Server) attachUSB(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid USB selection")
 		return
 	}
+
 	if err := params.ValidateAttach(); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	m, st, err := s.engine.StatusVM(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
+
 	if st.Phase != "running" {
 		writeError(w, http.StatusConflict, "start the VM before attaching USB devices")
 		return
 	}
+
 	s.submitJob(w, r, jobs.Payload{Action: "vm.usb.attach", Target: m.ID, USB: params})
 }
 
@@ -111,11 +117,13 @@ func (s *Server) detachUSB(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid USB attachment ID")
 		return
 	}
+
 	m, _, err := s.engine.StatusVM(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
+
 	s.submitJob(w, r, jobs.Payload{Action: "vm.usb.detach", Target: m.ID, USB: engine.USBParams{AttachmentID: id}})
 }
 
@@ -141,15 +149,18 @@ func (s *Server) assignUSB(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid USB selection")
 		return
 	}
+
 	if err := params.ValidateAttach(); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	m, _, err := s.engine.StatusVM(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
+
 	s.submitJob(w, r, jobs.Payload{Action: "vm.usb.assign", Target: m.ID, USB: params})
 }
 
@@ -173,14 +184,17 @@ func (s *Server) unassignUSB(w http.ResponseWriter, r *http.Request) {
 	if decoded, err := url.PathUnescape(key); err == nil {
 		key = decoded
 	}
+
 	if key == "" || len(key) > 512 {
 		writeError(w, http.StatusBadRequest, "invalid USB assignment")
 		return
 	}
+
 	m, _, err := s.engine.StatusVM(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
+
 	s.submitJob(w, r, jobs.Payload{Action: "vm.usb.unassign", Target: m.ID, USB: engine.USBParams{AssignmentKey: key}})
 }

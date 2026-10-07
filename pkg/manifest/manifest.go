@@ -45,6 +45,7 @@ func (s *Store) Save(m *types.VMManifest) error {
 	if err := storage.ValidateID(m.ID); err != nil {
 		return err
 	}
+
 	if err := s.validate.Struct(m); err != nil {
 		return fmt.Errorf("invalid manifest: %w", err)
 	}
@@ -65,6 +66,7 @@ func (s *Store) Load(id string) (*types.VMManifest, error) {
 	if err := storage.ValidateID(id); err != nil {
 		return nil, err
 	}
+
 	data, err := os.ReadFile(s.path(id))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, ErrNotFound
@@ -78,9 +80,11 @@ func (s *Store) Load(id string) (*types.VMManifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", s.path(id), err)
 	}
+
 	if m.ID != id {
 		return nil, fmt.Errorf("manifest ID does not match filename")
 	}
+
 	return m, nil
 }
 

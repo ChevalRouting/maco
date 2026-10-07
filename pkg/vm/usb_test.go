@@ -28,11 +28,13 @@ func newUSBFixture(t *testing.T, reject bool) (*usbFixture, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	socket := filepath.Join(dir, "qmp.sock")
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	f := &usbFixture{listener: listener, reject: reject, done: make(chan struct{})}
 	go f.run()
 	t.Cleanup(func() { _ = listener.Close(); <-f.done; _ = os.RemoveAll(dir) })
@@ -45,6 +47,7 @@ func (f *usbFixture) run() {
 	if err != nil {
 		return
 	}
+
 	defer func() { _ = conn.Close() }()
 	enc, dec := json.NewEncoder(conn), json.NewDecoder(conn)
 	_ = enc.Encode(map[string]any{"QMP": map[string]any{}})
@@ -53,6 +56,7 @@ func (f *usbFixture) run() {
 		if dec.Decode(&command) != nil {
 			return
 		}
+
 		args, _ := command.Arguments.(map[string]any)
 		switch command.Execute {
 		case "qmp_capabilities":
@@ -62,6 +66,7 @@ func (f *usbFixture) run() {
 			if !f.deleted {
 				result = append(result, qomProperty{Name: USBDeviceID("f1658cbd-5e69-425f-a8ec-4321d072ae01"), Type: "child<usb-host>"})
 			}
+
 			_ = enc.Encode(map[string]any{"return": result})
 		case "qom-get":
 			_ = enc.Encode(map[string]any{"return": true})
@@ -72,6 +77,7 @@ func (f *usbFixture) run() {
 			if f.reject {
 				event = "DEVICE_UNPLUG_GUEST_ERROR"
 			}
+
 			_ = enc.Encode(map[string]any{"event": event, "data": map[string]any{"device": args["id"]}})
 			_ = enc.Encode(map[string]any{"return": map[string]any{}})
 		default:
@@ -103,42 +109,52 @@ func TestLiveUSBMissingCaptureAndDetach(t *testing.T) {
 	if err != nil {
 		t.Skip("QEMU unavailable")
 	}
+
 	dir, err := os.MkdirTemp("/tmp", "usb-live-")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer func() { _ = os.RemoveAll(dir) }()
 	driver := NewDriver(dir)
 	if err := os.MkdirAll(driver.vmRunDir("vm"), 0o700); err != nil {
 		t.Fatal(err)
 	}
+
 	process := exec.Command(qemu, "-machine", "virt", "-accel", "tcg", "-S", "-display", "none", "-nodefaults", "-device", "qemu-xhci,id=maco-usb", "-qmp", "unix:"+driver.qmpPath("vm")+",server=on,wait=off")
 	if err := process.Start(); err != nil {
 		t.Fatal(err)
 	}
+
 	defer func() { _ = process.Process.Kill(); _ = process.Wait() }()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		if _, err := os.Stat(driver.qmpPath("vm")); err == nil {
 			break
 		}
+
 		if time.Now().After(deadline) {
 			t.Fatal("QMP unavailable")
 		}
+
 		time.Sleep(10 * time.Millisecond)
 	}
+
 	id := USBDeviceID(uuid.NewString())
 	err = driver.AttachUSB("vm", id, usb.Device{Bus: 255, Address: 127, Port: "7.7.7.7.7.7.7", VendorID: 65535, ProductID: 65535})
 	if err == nil {
 		t.Fatal("missing host device falsely reported captured")
 	}
+
 	state, err := ObserveUSB(driver.qmpPath("vm"), id)
 	if err != nil || !state.Exists || state.Attached {
 		t.Fatalf("unexpected uncaptured object: %+v %v", state, err)
 	}
+
 	if err := driver.DetachUSB("vm", id); err != nil {
 		t.Fatal(err)
 	}
+
 	state, err = ObserveUSB(driver.qmpPath("vm"), id)
 	if err != nil || state.Exists {
 		t.Fatalf("device still present: %+v %v", state, err)

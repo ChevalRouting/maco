@@ -26,6 +26,26 @@ is needed.
 task build      # -> ./maco and ./maco-net-helper (darwin/arm64)
 ```
 
+## Linux (KVM, x86_64)
+
+maco also builds and runs on Linux with KVM on x86_64. The VM datapath uses a
+tap device attached to a Linux bridge managed through netlink, so no native
+helper is built.
+
+Prerequisites: `qemu-system-x86_64`, OVMF firmware, access to `/dev/kvm` (add
+the user to the `kvm` group), `iproute2`, and `xorriso` or `genisoimage` for
+cloud-init seeds. Redis is required at runtime and is not managed by maco; run
+it separately and point maco at it with `MACO_REDIS_URL`.
+
+```bash
+task build GOOS=linux GOARCH=amd64   # -> ./maco (single binary, no helper)
+sudo ./maco install                  # binary, data dir, and systemd unit
+```
+
+`maco install` copies the binary to `/usr/local/bin`, creates the data dir at
+`/var/lib/maco`, writes and enables a `maco.service` systemd unit, and verifies
+that Redis is reachable. Set `MACO_OVMF` to override OVMF firmware discovery.
+
 `task build` targets `darwin/arm64` by default. Run `task` for the default build or `task --list` for all tasks. Other useful tasks:
 
 | Target | What it does |
@@ -36,7 +56,9 @@ task build      # -> ./maco and ./maco-net-helper (darwin/arm64)
 | `task deploy HOST=user@mac` | build production maco and reinstall it over SSH |
 | `task test` | vet and test both Go modules, native helper and deployment scripts |
 | `task test-mcp` | vet and test the independent MCP module |
-| `task lint` | run `golangci-lint` |
+| `task check-style` | build and run the Go coding-style checker |
+| `task build-style-checker` | build `build/stylecheck` for the execution host |
+| `task lint` | alias for `task check-style` |
 | `task tidy` | tidy both Go modules |
 | `task run -- vm list` | build then run with arguments |
 
@@ -95,8 +117,11 @@ server does not start if Redis cannot be reached.
 Install a compatible linter for the Go toolchain before running `task lint`:
 
 ```bash
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 ```
+
+See [code-style.md](code-style.md#automated-validation) for UI lint dependencies,
+pre-build checks and custom-rule tests.
 
 ## Developing the web UI
 

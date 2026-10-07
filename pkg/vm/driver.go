@@ -50,14 +50,17 @@ func (d *Driver) StartPreparedContext(ctx context.Context, id string, prepare fu
 	if err != nil {
 		return Status{}, err
 	}
-	defer lock.Close()
+
+	defer func() { _ = lock.Close() }()
 	if st := d.Status(id); st.Phase == PhaseRunning {
 		return st, nil
 	}
+
 	spec, err := prepare()
 	if err != nil {
 		return Status{}, err
 	}
+
 	if spec.ID != id {
 		return Status{}, fmt.Errorf("prepared VM ID changed")
 	}
@@ -70,9 +73,11 @@ func (d *Driver) StartPreparedContext(ctx context.Context, id string, prepare fu
 	if err := stopNetworkHelpers(runDir); err != nil {
 		return Status{}, err
 	}
+
 	if err := os.Remove(d.networkChangePath(spec.ID)); err != nil && !os.IsNotExist(err) {
 		return Status{}, err
 	}
+
 	_ = os.Remove(d.qmpPath(spec.ID))
 
 	qemu, err := LocateQEMU()
@@ -82,7 +87,7 @@ func (d *Driver) StartPreparedContext(ctx context.Context, id string, prepare fu
 
 	for i := range spec.Interfaces {
 		if spec.Interfaces[i].Network == NetworkBridge {
-			spec.Interfaces[i].Socket = datapath.Socket(filepath.Join(runDir, "interfaces", spec.Interfaces[i].ID))
+			setBridgeEndpoint(&spec.Interfaces[i], filepath.Join(runDir, "interfaces", spec.Interfaces[i].ID))
 		}
 	}
 
@@ -95,6 +100,7 @@ func (d *Driver) StartPreparedContext(ctx context.Context, id string, prepare fu
 	if err != nil {
 		return Status{}, fmt.Errorf("create qemu log: %w", err)
 	}
+
 	defer func() { _ = logFile.Close() }()
 
 	for _, nic := range spec.Interfaces {
@@ -104,6 +110,7 @@ func (d *Driver) StartPreparedContext(ctx context.Context, id string, prepare fu
 				_ = stopNetworkHelpers(runDir)
 				return Status{}, err
 			}
+
 			if err := datapath.Start(dir, nic.Bridge); err != nil {
 				_ = stopNetworkHelpers(runDir)
 				return Status{}, err
@@ -155,6 +162,7 @@ func (d *Driver) stop(id string, graceful time.Duration, guestShutdown bool) err
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = lock.Close() }()
 
 	st := d.Status(id)
@@ -176,9 +184,11 @@ func (d *Driver) stop(id string, graceful time.Duration, guestShutdown bool) err
 		}
 
 	}
+
 	if err := d.signalVM(id, pid, syscall.SIGTERM); err != nil {
 		return err
 	}
+
 	if waitExit(pid, 5*time.Second) {
 		_ = d.clearPID(id)
 		return stopNetworkHelpers(d.vmRunDir(id))
@@ -208,6 +218,7 @@ func (d *Driver) Status(id string) Status {
 			return Status{Phase: PhaseStopped}
 		}
 	}
+
 	return Status{Phase: PhaseRunning, PID: pid}
 }
 
@@ -220,9 +231,11 @@ func (d *Driver) writePID(id string, pid int) error {
 	if err != nil {
 		return err
 	}
+
 	if err := storage.WriteFile(d.pidPath(id)+".identity", []byte(identity), 0o600); err != nil {
 		return err
 	}
+
 	return storage.WriteFile(d.pidPath(id), []byte(strconv.Itoa(pid)), 0o600)
 }
 
@@ -268,16 +281,20 @@ func (d *Driver) signalVM(id string, pid int, sig syscall.Signal) error {
 	if err != nil {
 		return fmt.Errorf("cannot safely signal VM without process identity: %w", err)
 	}
+
 	current, err := processIdentity(pid)
 	if err != nil {
 		if !processAlive(pid) {
 			return nil
 		}
+
 		return err
 	}
+
 	if current != string(expected) {
 		return fmt.Errorf("VM process identity changed; refusing to signal PID %d", pid)
 	}
+
 	return signalPID(pid, sig)
 }
 
@@ -324,9 +341,11 @@ func (d *Driver) LockContext(ctx context.Context, id string) (*os.File, error) {
 	if err := storage.ValidateID(id); err != nil {
 		return nil, err
 	}
+
 	if err := storage.EnsurePrivateDir(d.runDir); err != nil {
 		return nil, err
 	}
+
 	return storage.Lock(ctx, filepath.Join(d.vmRunDir(id), "lifecycle.lock"))
 }
 
@@ -356,6 +375,7 @@ func stopNetworkHelpers(runDir string) error {
 	if err != nil && !os.IsNotExist(err) {
 		result = err
 	}
+
 	for _, entry := range entries {
 		if entry.IsDir() {
 			if err := datapath.Stop(filepath.Join(runDir, "interfaces", entry.Name())); err != nil {
@@ -363,13 +383,16 @@ func stopNetworkHelpers(runDir string) error {
 			}
 		}
 	}
+
 	if err := datapath.Stop(runDir); err != nil {
 		result = err
 	}
+
 	if result == nil {
 		if err := os.Remove(filepath.Join(runDir, "network-change.json")); err != nil && !os.IsNotExist(err) {
 			result = err
 		}
 	}
+
 	return result
 }

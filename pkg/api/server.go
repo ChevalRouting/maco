@@ -111,6 +111,8 @@ func (s *Server) mountProtected(r chi.Router) {
 	r.Post("/vms/{id}/disks", s.addDisk)
 	r.Patch("/vms/{id}/disks/{disk}", s.growDisk)
 	r.Delete("/vms/{id}/disks/{disk}", s.removeDisk)
+	r.Post("/vms/{id}/disks/{disk}/wipe", s.wipeDisk)
+	r.Post("/vms/{id}/disks/{disk}/replace", s.replaceDisk)
 	r.Get("/vms/{id}/preview", s.previewVM)
 	r.Get("/vms/{id}/guest-agent", s.vmGuestAgent)
 	r.Post("/vms/{id}/start", s.startVM)
@@ -185,6 +187,7 @@ func (s *Server) serveStatic(w http.ResponseWriter, req *http.Request) {
 		http.NotFound(w, req)
 		return
 	}
+
 	defer func() { _ = index.Close() }()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -199,15 +202,18 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
+
 		claims, err := s.authenticate(r.Context(), token)
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
+
 		if !readOnlyMethod(r.Method) && !auth.CanMutate(claims.Role) && !strings.HasPrefix(r.URL.Path, "/api/me/") {
 			writeError(w, http.StatusForbidden, "administrator role required")
 			return
 		}
+
 		next.ServeHTTP(w, r.WithContext(withClaims(r.Context(), claims)))
 	})
 }
@@ -232,6 +238,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusTooManyRequests, "too many login attempts")
 		return
 	}
+
 	defer release()
 	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(5 * time.Second))
 	var req LoginRequest
@@ -288,6 +295,7 @@ func (s *Server) notifyMutations(next http.Handler) http.Handler {
 			if strings.HasPrefix(r.URL.Path, "/api/media") {
 				s.events.broadcast("media", "disks", "storage", "vms")
 			}
+
 			if strings.HasPrefix(r.URL.Path, "/api/templates") {
 				s.events.broadcast("templates")
 			}

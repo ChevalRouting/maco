@@ -12,5 +12,6 @@ func processIdentity(pid int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return fmt.Sprintf("%d:%d:%d", pid, info.Proc.P_starttime.Sec, info.Proc.P_starttime.Usec), nil
 }

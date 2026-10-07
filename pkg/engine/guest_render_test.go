@@ -28,11 +28,13 @@ func TestRenderGuestSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for _, want := range []string{"hostname: web-01", "cpus: 4", "mem: 4096", "disk: data 10G"} {
 		if !strings.Contains(out.Raw, want) {
 			t.Fatalf("raw missing %q:\n%s", want, out.Raw)
 		}
 	}
+
 	if out.Files[0].Content != "host=web-01" {
 		t.Fatalf("file not rendered: %q", out.Files[0].Content)
 	}
@@ -42,6 +44,7 @@ func TestRenderGuestSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if passed.Raw != plain.Raw {
 		t.Fatalf("plain content changed: %q", passed.Raw)
 	}

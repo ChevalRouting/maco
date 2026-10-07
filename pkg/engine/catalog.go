@@ -39,6 +39,7 @@ func (e *Engine) Catalog() []CatalogImage {
 			Provisioning: image.Provisioning(img),
 		})
 	}
+
 	sort.Slice(result, func(i, j int) bool { return result[i].DisplayName < result[j].DisplayName })
 	return result
 }
@@ -48,6 +49,7 @@ func (e *Engine) DownloadCatalogImage(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+
 	_, err = image.PullContext(ctx, e.paths.ImagesDir(), img)
 	return err
 }
@@ -57,5 +59,6 @@ func (e *Engine) DeleteCatalogImage(id string) error {
 	if err != nil {
 		return err
 	}
+
 	return image.RemoveCached(e.paths.ImagesDir(), img)
 }

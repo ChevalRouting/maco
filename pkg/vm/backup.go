@@ -33,12 +33,14 @@ func (d *Driver) BackupDisksContext(ctx context.Context, id string, backups []Ba
 	if err != nil {
 		return false, err
 	}
+
 	defer client.close()
-	stopWatch := context.AfterFunc(ctx, func() { client.conn.Close() })
+	stopWatch := context.AfterFunc(ctx, func() { _ = client.conn.Close() })
 	defer stopWatch()
 	if err := client.conn.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		return false, err
 	}
+
 	actions := make([]map[string]any, len(backups))
 	jobIDs := make([]string, len(backups))
 	for i, backup := range backups {
@@ -46,20 +48,24 @@ func (d *Driver) BackupDisksContext(ctx context.Context, id string, backups []Ba
 		if err != nil {
 			return false, err
 		}
+
 		jobIDs[i] = "backup-" + uuid.NewString()
 		actions[i] = map[string]any{"type": "drive-backup", "data": map[string]any{
 			"job-id": jobIDs[i], "device": node, "sync": "full", "target": backup.Target, "format": "qcow2", "auto-dismiss": false,
 		}}
 	}
+
 	froze, err := d.freezeGuest(id)
 	thawed := !froze
 	thaw := func() error {
 		if thawed {
 			return nil
 		}
+
 		if err := d.thawGuest(id); err != nil {
 			return fmt.Errorf("thaw guest: %w", err)
 		}
+
 		thawed = true
 		return nil
 	}
@@ -72,6 +78,7 @@ func (d *Driver) BackupDisksContext(ctx context.Context, id string, backups []Ba
 	if err != nil {
 		return false, fmt.Errorf("freeze guest: %w", err)
 	}
+
 	attempted := false
 	defer func() {
 		if retErr != nil && attempted {
@@ -84,14 +91,17 @@ func (d *Driver) BackupDisksContext(ctx context.Context, id string, backups []Ba
 	if _, err := client.executeArguments("transaction", map[string]any{"actions": actions}); err != nil {
 		return false, err
 	}
+
 	if err := thaw(); err != nil {
 		return false, err
 	}
+
 	for _, jobID := range jobIDs {
 		if err := client.awaitBackup(ctx, jobID); err != nil {
 			return false, err
 		}
 	}
+
 	return froze, nil
 }
 
@@ -100,30 +110,36 @@ func (d *Driver) cancelBackups(id string, jobIDs []string) error {
 	if err != nil {
 		return err
 	}
+
 	defer client.close()
 	deadline := time.Now().Add(15 * time.Second)
 	wanted := make(map[string]bool, len(jobIDs))
 	for _, id := range jobIDs {
 		wanted[id] = true
 	}
+
 	for {
 		if time.Now().After(deadline) {
 			return fmt.Errorf("backup cancellation timed out")
 		}
+
 		client.conn.SetDeadline(time.Now().Add(3 * time.Second))
 		data, err := client.execute("query-block-jobs")
 		if err != nil {
 			return err
 		}
+
 		var jobs []blockJob
 		if err := json.Unmarshal(data, &jobs); err != nil {
 			return err
 		}
+
 		active := false
 		for _, job := range jobs {
 			if !wanted[job.Device] {
 				continue
 			}
+
 			active = true
 			if job.Status == "concluded" {
 				if _, err := client.executeArguments("job-dismiss", map[string]any{"id": job.Device}); err != nil {
@@ -135,9 +151,11 @@ func (d *Driver) cancelBackups(id string, jobIDs []string) error {
 				}
 			}
 		}
+
 		if !active {
 			return nil
 		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
 }
@@ -168,10 +186,12 @@ func (c *qmpClient) awaitBackup(ctx context.Context, jobID string) error {
 		if err := json.Unmarshal(data, &jobs); err != nil {
 			return nil, err
 		}
+
 		out := make([]qmpJob, len(jobs))
 		for i, job := range jobs {
 			out[i] = qmpJob{id: job.Device, status: job.Status, failure: job.Error}
 		}
+
 		return out, nil
 	})
 }

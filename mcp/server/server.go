@@ -148,6 +148,7 @@ func (s *Server) refresh(ctx context.Context, name string) {
 		if name != "" && key != name {
 			continue
 		}
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -160,6 +161,7 @@ func (s *Server) refresh(ctx context.Context, name string) {
 			}
 		}()
 	}
+
 	wg.Wait()
 
 	s.mu.Lock()
@@ -171,6 +173,7 @@ func (s *Server) refresh(ctx context.Context, name string) {
 			s.failures[key] = failure
 		}
 	}
+
 	s.rebuildTools()
 }
 
@@ -181,49 +184,60 @@ func (i *instance) discover(ctx context.Context) (*catalog, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	structured, _ := result.StructuredContent.(map[string]any)
 	data, err := json.Marshal(structured["result"])
 	if err != nil {
 		return nil, err
 	}
+
 	var document contract
 	if err = json.Unmarshal(data, &document); err != nil {
 		return nil, err
 	}
+
 	if !strings.HasPrefix(document.OpenAPI, "3.1.") || document.Metadata.Version != 1 {
 		return nil, fmt.Errorf("instance %q does not publish supported x-maco contract version 1 and OpenAPI 3.1; upgrade Maco then call instances_refresh", i.name)
 	}
+
 	if strings.TrimSpace(document.Metadata.Instructions) == "" {
 		return nil, fmt.Errorf("server contract lacks usage instructions")
 	}
+
 	c := &catalog{hash: fmt.Sprintf("%x", sha256.Sum256(data)), document: document, endpoints: map[string]*endpoint{}, toolNames: map[string]string{}}
 	for route, methods := range document.Paths {
 		for method, op := range methods {
 			if !op.Metadata.Expose {
 				continue
 			}
+
 			e, err := compileEndpoint(method, route, op, document.Components.Schemas)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", op.ID, err)
 			}
+
 			if _, exists := c.endpoints[op.ID]; exists {
 				return nil, fmt.Errorf("duplicate operation ID %q", op.ID)
 			}
+
 			e.catalog = c
 			c.endpoints[op.ID] = e
 		}
 	}
+
 	for _, e := range c.endpoints {
 		if wait := e.op.Metadata.Wait; wait != nil {
 			target := c.endpoints[wait.OperationID]
 			if target == nil || target.method != http.MethodGet || target.op.Metadata.Stream == nil || wait.IDField == "" || wait.Parameter == "" {
 				return nil, fmt.Errorf("%s: invalid job wait metadata", e.op.ID)
 			}
+
 			if len(target.op.Parameters) != 1 || target.op.Parameters[0].Name != wait.Parameter || target.op.Parameters[0].In != "path" {
 				return nil, fmt.Errorf("%s: unsupported wait parameter contract", e.op.ID)
 			}
 		}
 	}
+
 	return c, nil
 }
 
@@ -231,17 +245,21 @@ func compileEndpoint(method, route string, op operation, definitions map[string]
 	if !validOperationID.MatchString(op.ID) || isBootstrap(op.ID) {
 		return nil, fmt.Errorf("invalid or reserved operation ID")
 	}
+
 	if !safePath(route) {
 		return nil, fmt.Errorf("unsupported API path")
 	}
+
 	switch method {
 	case "get", "post", "put", "patch", "delete":
 	default:
 		return nil, fmt.Errorf("unsupported HTTP method %q", method)
 	}
+
 	if strings.TrimSpace(op.Description) == "" {
 		return nil, fmt.Errorf("operation needs a usage description")
 	}
+
 	switch op.Metadata.Transport {
 	case "json", "image":
 	case "sse":
@@ -255,57 +273,70 @@ func compileEndpoint(method, route string, op operation, definitions map[string]
 	default:
 		return nil, fmt.Errorf("unsupported transport %q", op.Metadata.Transport)
 	}
+
 	props := map[string]any{}
 	required := []string{}
 	for _, p := range op.Parameters {
 		if p.Name == "instance" || p.Name == "body" || p.Name == "wait" || p.Name == "file_path" {
 			return nil, fmt.Errorf("reserved parameter name %q", p.Name)
 		}
+
 		if p.In != "path" && p.In != "query" {
 			return nil, fmt.Errorf("unsupported parameter location %q", p.In)
 		}
+
 		schema := map[string]any{}
 		for k, v := range p.Schema {
 			schema[k] = v
 		}
+
 		if p.Description != "" {
 			schema["description"] = p.Description
 		}
+
 		props[p.Name] = schema
 		if p.Required {
 			required = append(required, p.Name)
 		}
 	}
+
 	if body, ok := op.RequestBody.Content["application/json"]; ok {
 		props["body"] = body.Schema
 		if op.RequestBody.Required {
 			required = append(required, "body")
 		}
 	}
+
 	if op.Metadata.Transport == "multipart" {
 		props["file_path"] = map[string]any{"type": "string", "description": "Absolute path on the MCP host to a regular file to upload; no file bytes in tool arguments"}
 		required = append(required, "file_path")
 	}
+
 	if op.Metadata.Wait != nil {
 		props["wait"] = map[string]any{"type": "boolean", "default": false, "description": "Submit the action, extract its returned job ID, and wait for the final job result. False returns the queued job immediately."}
 	}
+
 	expanded, err := expandSchema(map[string]any{"type": "object", "properties": props, "required": required, "additionalProperties": false}, definitions, 0)
 	if err != nil {
 		return nil, err
 	}
+
 	input := expanded.(map[string]any)
 	data, err := json.Marshal(input)
 	if err != nil {
 		return nil, err
 	}
+
 	var typed jsonschema.Schema
 	if err = json.Unmarshal(data, &typed); err != nil {
 		return nil, err
 	}
+
 	resolved, err := typed.Resolve(nil)
 	if err != nil {
 		return nil, err
 	}
+
 	return &endpoint{method: strings.ToUpper(method), path: route, op: op, input: input, schema: resolved}, nil
 }
 
@@ -323,14 +354,17 @@ func (s *Server) rebuildTools() {
 		if c == nil {
 			continue
 		}
+
 		c.toolNames = map[string]string{}
 		for id, e := range c.endpoints {
 			if groups[id] == nil {
 				groups[id] = map[string]*endpoint{}
 			}
+
 			groups[id][name] = e
 		}
 	}
+
 	s.mcp.RemoveTools(s.tools...)
 	s.tools = nil
 	used := map[string]bool{}
@@ -339,6 +373,7 @@ func (s *Server) rebuildTools() {
 		used[id] = true
 		ids = append(ids, id)
 	}
+
 	sort.Strings(ids)
 	for _, id := range ids {
 		endpoints := groups[id]
@@ -347,14 +382,17 @@ func (s *Server) rebuildTools() {
 			data, _ := json.Marshal([]any{e.method, e.path, e.op, e.input, e.catalog.document.Components})
 			fingerprints[fmt.Sprintf("%x", sha256.Sum256(data))] = true
 		}
+
 		if len(fingerprints) == 1 {
 			s.addActionTool(id, endpoints)
 			continue
 		}
+
 		names := make([]string, 0, len(endpoints))
 		for name := range endpoints {
 			names = append(names, name)
 		}
+
 		sort.Strings(names)
 		for _, name := range names {
 			e := endpoints[name]
@@ -362,6 +400,7 @@ func (s *Server) rebuildTools() {
 			if len(base) > 36 {
 				base = base[:36]
 			}
+
 			toolName := ""
 			for nonce := 0; ; nonce++ {
 				candidate := fmt.Sprintf("%s__%x", base, sha256.Sum256([]byte(fmt.Sprintf("%s:%s:%d", name, id, nonce))))[:len(base)+18]
@@ -371,6 +410,7 @@ func (s *Server) rebuildTools() {
 					break
 				}
 			}
+
 			s.addActionTool(toolName, map[string]*endpoint{name: e})
 		}
 	}
@@ -384,6 +424,7 @@ func (s *Server) addActionTool(name string, endpoints map[string]*endpoint) {
 		exemplar = e
 		e.catalog.toolNames[e.op.ID] = name
 	}
+
 	sort.Strings(names)
 	data, _ := json.Marshal(exemplar.input)
 	var input map[string]any
@@ -395,6 +436,7 @@ func (s *Server) addActionTool(name string, endpoints map[string]*endpoint) {
 	if exemplar.op.Metadata.Wait != nil {
 		description += " Set wait=true for the final job result; otherwise use the returned job ID with the advertised wait operation."
 	}
+
 	s.mcp.AddTool(&mcp.Tool{Name: name, Description: description, InputSchema: input, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: exemplar.op.Metadata.ReadOnly}}, (&apiTool{server: s, endpoints: endpoints}).call)
 	s.tools = append(s.tools, name)
 }
@@ -404,6 +446,7 @@ func (t *apiTool) call(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Call
 	if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
 		return toolError(err), nil
 	}
+
 	name, _ := args["instance"].(string)
 	t.server.mu.RLock()
 	e := t.endpoints[name]
@@ -412,14 +455,17 @@ func (t *apiTool) call(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Call
 	if !current {
 		return toolError(fmt.Errorf("instance %q is unavailable for this tool or its contract changed; call instance_describe and re-list tools", name)), nil
 	}
+
 	delete(args, "instance")
 	if err := e.schema.Validate(args); err != nil {
 		return toolError(fmt.Errorf("invalid arguments: %w", err)), nil
 	}
+
 	result, err := t.server.execute(ctx, name, e, args)
 	if err != nil {
 		return toolError(err), nil
 	}
+
 	return result, nil
 }
 
@@ -428,15 +474,18 @@ func (s *Server) execute(ctx context.Context, name string, e *endpoint, args map
 	if err != nil {
 		return nil, err
 	}
+
 	i := s.instances[name]
 	result, err := i.requestOnce(ctx, e.method, route, e.op.Metadata, args)
 	if err != nil {
 		return nil, err
 	}
+
 	wait, _ := args["wait"].(bool)
 	if !wait || result.IsError {
 		return result, nil
 	}
+
 	metadata := e.op.Metadata.Wait
 	structured, _ := result.StructuredContent.(map[string]any)
 	job, _ := structured["result"].(map[string]any)
@@ -444,15 +493,18 @@ func (s *Server) execute(ctx context.Context, name string, e *endpoint, args map
 	if !safeParameter(id) {
 		return nil, fmt.Errorf("action submitted but response has no usable job ID; inspect jobs before retrying")
 	}
+
 	target := e.catalog.endpoints[metadata.OperationID]
 	route, err = target.requestPath(map[string]any{metadata.Parameter: id})
 	if err != nil {
 		return nil, err
 	}
+
 	completed, err := i.requestOnce(ctx, target.method, route, target.op.Metadata, nil)
 	if err != nil {
 		return nil, fmt.Errorf("submitted job %q, but waiting failed: %w; inspect or wait for that ID instead of repeating the action", id, err)
 	}
+
 	return completed, nil
 }
 
@@ -464,22 +516,27 @@ func (e *endpoint) requestPath(args map[string]any) (string, error) {
 		if !ok {
 			continue
 		}
+
 		str := fmt.Sprint(value)
 		if p.In == "path" {
 			if !safeParameter(str) {
 				return "", fmt.Errorf("invalid path parameter %s", p.Name)
 			}
+
 			route = strings.ReplaceAll(route, "{"+p.Name+"}", url.PathEscape(str))
 		} else {
 			query.Set(p.Name, str)
 		}
 	}
+
 	if strings.ContainsAny(route, "{}") {
 		return "", fmt.Errorf("missing path parameter")
 	}
+
 	if len(query) > 0 {
 		route += "?" + query.Encode()
 	}
+
 	return route, nil
 }
 
@@ -494,6 +551,7 @@ func (s *Server) instancesList(context.Context, *mcp.CallToolRequest, noInput) (
 	for name := range s.instances {
 		names = append(names, name)
 	}
+
 	sort.Strings(names)
 	states := map[string]any{}
 	for _, name := range names {
@@ -503,6 +561,7 @@ func (s *Server) instancesList(context.Context, *mcp.CallToolRequest, noInput) (
 			states[name] = map[string]any{"available": false, "error": s.failures[name]}
 		}
 	}
+
 	return nil, map[string]any{"instances": names, "status": states}, nil
 }
 
@@ -513,17 +572,21 @@ func (s *Server) instanceDescribe(_ context.Context, _ *mcp.CallToolRequest, in 
 	if c == nil {
 		return nil, nil, fmt.Errorf("instance %q unavailable: %s; use instances_refresh to retry", in.Instance, s.failures[in.Instance])
 	}
+
 	if in.Operation != "" {
 		e := c.endpoints[in.Operation]
 		if e == nil {
 			return nil, nil, fmt.Errorf("operation %q unavailable on this instance", in.Operation)
 		}
+
 		responses, err := expandSchema(e.op.Responses, c.document.Components.Schemas, 0)
 		if err != nil {
 			return nil, nil, err
 		}
+
 		return nil, map[string]any{"tool": c.toolNames[in.Operation], "operation": e.op, "request_schema": e.input, "responses": responses, "instructions": c.document.Metadata.Instructions, "contract_hash": c.hash}, nil
 	}
+
 	return nil, map[string]any{"instance": in.Instance, "api": c.document.Info, "contract_hash": c.hash, "instructions": c.document.Metadata.Instructions, "operations": c.toolNames}, nil
 }
 
@@ -531,6 +594,7 @@ func (s *Server) instancesRefresh(ctx context.Context, req *mcp.CallToolRequest,
 	if in.Instance != "" && s.instances[in.Instance] == nil {
 		return nil, nil, fmt.Errorf("unknown instance %q", in.Instance)
 	}
+
 	s.refresh(ctx, in.Instance)
 	return s.instancesList(ctx, req, noInput{})
 }

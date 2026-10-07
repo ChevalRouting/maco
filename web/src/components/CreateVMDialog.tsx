@@ -255,6 +255,7 @@ export function CreateVMDialog({
             <ValidatedEntryRow
               id="vm-name"
               title="Name"
+              stacked
               required
               autoFocus
               value={form.name}
@@ -314,6 +315,7 @@ export function CreateVMDialog({
               <IntegerEntryRow
                 id="vm-cpus"
                 title="Virtual CPUs"
+                stacked
                 min={1}
                 required
                 value={form.cpus}
@@ -321,12 +323,14 @@ export function CreateVMDialog({
               />
               <MemoryEntryRow
                 id="vm-memory"
+                stacked
                 value={form.memory_mib}
                 onValueChange={(memory_mib) => setForm({ ...form, memory_mib })}
               />
               <IntegerEntryRow
                 id="vm-disk"
                 title="Boot disk capacity (GiB)"
+                stacked
                 min={imageSize}
                 required
                 value={diskSize}
@@ -366,6 +370,7 @@ export function CreateVMDialog({
                     <ValidatedEntryRow
                       id={`vm-disk-name-${index}`}
                       title={`Disk ${index + 1} name`}
+                      stacked
                       required
                       value={disk.name}
                       error={disk.name.trim() ? '' : 'Enter a disk name.'}
@@ -380,6 +385,7 @@ export function CreateVMDialog({
                     <IntegerEntryRow
                       id={`vm-disk-size-${index}`}
                       title="Capacity (GiB)"
+                      stacked
                       min={1}
                       required
                       value={disk.size_gib}
@@ -445,6 +451,7 @@ export function CreateVMDialog({
                   <ValidatedEntryRow
                     id={`vm-nic-mac-${index}`}
                     title="MAC Address"
+                    stacked
                     placeholder="Assigned Automatically"
                     value={nic.mac}
                     error={macError(nic.mac)}

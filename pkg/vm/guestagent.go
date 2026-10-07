@@ -64,6 +64,7 @@ func (d *Driver) GuestAgentInfo(id string) (*GuestAgentInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrGuestAgentUnavailable, err)
 	}
+
 	defer func() { _ = client.close() }()
 
 	var base struct {
@@ -92,13 +93,16 @@ func (d *Driver) freezeGuest(id string) (froze bool, err error) {
 	if err != nil {
 		return false, nil
 	}
+
 	defer func() { _ = client.close() }()
 	if err := client.conn.SetDeadline(time.Now().Add(freezeTimeout)); err != nil {
 		return false, err
 	}
+
 	if err := client.execute("guest-fsfreeze-freeze", nil, nil); err != nil {
 		return true, err
 	}
+
 	return true, nil
 }
 
@@ -110,9 +114,11 @@ func (d *Driver) thawGuest(id string) error {
 		if last == nil {
 			return nil
 		}
+
 		if !time.Now().Before(deadline) {
 			return last
 		}
+
 		time.Sleep(500 * time.Millisecond)
 	}
 }
@@ -122,10 +128,12 @@ func (d *Driver) thawOnce(id string) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = client.close() }()
 	if err := client.conn.SetDeadline(time.Now().Add(thawCommandTimeout)); err != nil {
 		return err
 	}
+
 	return client.execute("guest-fsfreeze-thaw", nil, nil)
 }
 
@@ -139,6 +147,7 @@ func dialQGA(socket string, timeout time.Duration) (*qgaClient, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
 		_ = conn.Close()
 		return nil, err
@@ -149,6 +158,7 @@ func dialQGA(socket string, timeout time.Duration) (*qgaClient, error) {
 		_ = conn.Close()
 		return nil, err
 	}
+
 	return client, nil
 }
 
@@ -159,6 +169,7 @@ func (c *qgaClient) sync() error {
 	if _, err := c.conn.Write([]byte{0xff}); err != nil {
 		return err
 	}
+
 	if err := c.send("guest-sync-delimited", map[string]any{"id": token}); err != nil {
 		return err
 	}
@@ -168,6 +179,7 @@ func (c *qgaClient) sync() error {
 		if err != nil {
 			return err
 		}
+
 		if b == 0xff {
 			break
 		}
@@ -179,9 +191,11 @@ func (c *qgaClient) sync() error {
 	if err := c.read(&reply); err != nil {
 		return err
 	}
+
 	if reply.Return != token {
 		return fmt.Errorf("guest agent sync mismatch")
 	}
+
 	return nil
 }
 
@@ -190,10 +204,12 @@ func (c *qgaClient) send(cmd string, args any) error {
 	if args != nil {
 		payload["arguments"] = args
 	}
+
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
+
 	_, err = c.conn.Write(append(data, '\n'))
 	return err
 }
@@ -205,15 +221,19 @@ func (c *qgaClient) read(out any) error {
 		if len(line)+len(fragment) > 1<<20 {
 			return fmt.Errorf("guest agent response exceeds 1 MiB")
 		}
+
 		line = append(line, fragment...)
 		if err == bufio.ErrBufferFull {
 			continue
 		}
+
 		if err != nil {
 			return err
 		}
+
 		break
 	}
+
 	return json.Unmarshal(line, out)
 }
 
@@ -229,12 +249,15 @@ func (c *qgaClient) execute(cmd string, args, out any) error {
 	if err := c.read(&reply); err != nil {
 		return err
 	}
+
 	if reply.Error != nil {
 		return reply.Error
 	}
+
 	if out != nil && len(reply.Return) > 0 {
 		return json.Unmarshal(reply.Return, out)
 	}
+
 	return nil
 }
 
@@ -245,6 +268,7 @@ func (c *qgaClient) hostname() string {
 	if c.execute("guest-get-host-name", nil, &reply) != nil {
 		return ""
 	}
+
 	return reply.HostName
 }
 
@@ -262,6 +286,7 @@ func (c *qgaClient) osInfo() *GuestOSInfo {
 	if c.execute("guest-get-osinfo", nil, &raw) != nil {
 		return nil
 	}
+
 	return &GuestOSInfo{
 		ID:            raw.ID,
 		Name:          raw.Name,
@@ -294,8 +319,10 @@ func (c *qgaClient) interfaces() []GuestInterface {
 		for _, addr := range nic.IPAddresses {
 			iface.IPAddresses = append(iface.IPAddresses, GuestIPAddress{Address: addr.Address, Type: addr.Type, Prefix: addr.Prefix})
 		}
+
 		result = append(result, iface)
 	}
+
 	return result
 }
 
@@ -315,5 +342,6 @@ func (c *qgaClient) filesystems() []GuestFilesystem {
 	for _, fs := range raw {
 		result = append(result, GuestFilesystem{Name: fs.Name, Mountpoint: fs.Mountpoint, Type: fs.Type, TotalBytes: fs.TotalBytes, UsedBytes: fs.UsedBytes})
 	}
+
 	return result
 }

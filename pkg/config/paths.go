@@ -12,8 +12,6 @@ import (
 const EnvDataDir = "MACO_DATA_DIR"
 const EnvWorkDir = "MACO_WORKDIR"
 
-const globalDataDir = "/Library/Application Support/maco"
-
 type Paths struct {
 	Root string
 }
@@ -65,6 +63,7 @@ func (p *Paths) RunDir() string {
 	if v := os.Getenv(EnvWorkDir); v != "" {
 		return v
 	}
+
 	sum := sha256.Sum256([]byte(p.Root))
 	return filepath.Join("/tmp", "maco-"+hex.EncodeToString(sum[:4]))
 }

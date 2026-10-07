@@ -30,6 +30,7 @@ func (e *Engine) UpdateHardware(ctx context.Context, ref string, params UpdateHa
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = lock.Close() }()
 	manifest, err = e.vms.Load(manifest.ID)
 	if err != nil {

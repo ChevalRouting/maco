@@ -33,8 +33,10 @@ func Ensure(store *Store, n *types.NetworkManifest, dryRun bool) error {
 		if !host.Exists(n.Uplink) {
 			return fmt.Errorf("physical uplink %s is missing", n.Uplink)
 		}
+
 		return nil
 	}
+
 	if n.Mode != types.NetworkBridge {
 		return nil
 	}
@@ -43,6 +45,7 @@ func Ensure(store *Store, n *types.NetworkManifest, dryRun bool) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = lock.Close() }()
 
 	current, err := store.Load(n.ID)
@@ -65,6 +68,7 @@ func Ensure(store *Store, n *types.NetworkManifest, dryRun bool) error {
 			return fmt.Errorf("bridge member %s is missing", member)
 		}
 	}
+
 	for _, vlan := range n.VLANs {
 		if !host.Exists(vlan.Parent) {
 			return fmt.Errorf("VLAN parent %s is missing", vlan.Parent)
@@ -112,6 +116,7 @@ func Ensure(store *Store, n *types.NetworkManifest, dryRun bool) error {
 		if err != nil {
 			return err
 		}
+
 		vlan.Device, vlan.Borrowed = device, !owned
 		n.AppliedVLANs = slices.DeleteFunc(n.AppliedVLANs, func(applied types.VLAN) bool { return applied.Parent == vlan.Parent && applied.Tag == vlan.Tag })
 		n.AppliedVLANs = append(n.AppliedVLANs, *vlan)
@@ -119,6 +124,7 @@ func Ensure(store *Store, n *types.NetworkManifest, dryRun bool) error {
 			if owned && device != previousDevice {
 				_ = host.Destroy(device)
 			}
+
 			return err
 		}
 
@@ -213,6 +219,7 @@ func ensureVLAN(store *Store, n *types.NetworkManifest, dryRun bool) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = lock.Close() }()
 
 	current, err := store.Load(n.ID)
@@ -239,11 +246,13 @@ func ensureVLAN(store *Store, n *types.NetworkManifest, dryRun bool) error {
 	if err != nil {
 		return err
 	}
+
 	n.Device, n.Owned = device, owned
 	if err := store.Save(n); err != nil {
 		if owned && device != previousDevice {
 			_ = host.Destroy(device)
 		}
+
 		return err
 	}
 

@@ -86,6 +86,7 @@ func trimAddresses(addresses []string) []string {
 			trimmed = append(trimmed, value)
 		}
 	}
+
 	return trimmed
 }
 
@@ -97,9 +98,11 @@ func normalizeTags(tags []string) []string {
 		if value == "" || seen[value] {
 			continue
 		}
+
 		seen[value] = true
 		out = append(out, value)
 	}
+
 	return out
 }
 
@@ -109,14 +112,17 @@ func validateGuestNetwork(addresses []string, gateway string, nameservers []stri
 			return fmt.Errorf("address %q must use CIDR notation", address)
 		}
 	}
+
 	if gateway = strings.TrimSpace(gateway); gateway != "" && net.ParseIP(gateway) == nil {
 		return fmt.Errorf("gateway %q must be an IP address", gateway)
 	}
+
 	for _, ns := range trimAddresses(nameservers) {
 		if net.ParseIP(ns) == nil {
 			return fmt.Errorf("DNS server %q must be an IP address", ns)
 		}
 	}
+
 	return nil
 }
 
@@ -137,6 +143,7 @@ func (e *Engine) CreateVM(params CreateVMParams, sshKeys []string) (*types.VMMan
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() { _ = lock.Close() }()
 
 	if params.Image != "" {
@@ -158,6 +165,7 @@ func (e *Engine) CreateVM(params CreateVMParams, sshKeys []string) (*types.VMMan
 	if err := e.validateMedia(params.ISOs, params.BootOrder, nil); err != nil {
 		return nil, err
 	}
+
 	m := &types.VMManifest{
 		ISOs: params.ISOs, BootOrder: params.BootOrder,
 		ID:          uuid.NewString(),
@@ -184,12 +192,14 @@ func (e *Engine) CreateVM(params CreateVMParams, sshKeys []string) (*types.VMMan
 				MAC:     strings.TrimSpace(params.Interfaces[i].MAC),
 			})
 		}
+
 		m.Interfaces = &interfaces
 		setPrimaryNetwork(m, m.Addresses, m.Gateway, m.Nameservers)
 		normalized, err := e.normalizedInterfaces(m)
 		if err != nil {
 			return nil, err
 		}
+
 		m.Interfaces = &normalized
 	}
 
@@ -201,12 +211,15 @@ func (e *Engine) CreateVM(params CreateVMParams, sshKeys []string) (*types.VMMan
 		if setup.Provisioner == "" {
 			setup.Provisioner = caps[0].Provisioner
 		}
+
 		if setup.Mode == "" {
 			setup.Mode = types.GuestModeRaw
 		}
+
 		if err := validateGuestSetup(caps, setup); err != nil {
 			return nil, err
 		}
+
 		m.GuestSetup = &setup
 	}
 
@@ -240,6 +253,7 @@ func (e *Engine) guestCapabilities(m *types.VMManifest) []types.GuestCapability 
 	if img, err := image.Lookup(m.Image); err == nil {
 		return image.Provisioning(img)
 	}
+
 	return image.DefaultProvisioning()
 }
 
@@ -251,23 +265,28 @@ func validateGuestSetup(caps []types.GuestCapability, setup types.GuestSetup) er
 			break
 		}
 	}
+
 	if supported == nil {
 		return fmt.Errorf("image does not support %s provisioning", setup.Provisioner)
 	}
+
 	if setup.Hostname != "" && !guestHostname.MatchString(setup.Hostname) {
 		return fmt.Errorf("hostname must be a valid RFC 1123 hostname")
 	}
+
 	switch setup.Mode {
 	case types.GuestModeRaw:
 		if !supported.Raw {
 			return fmt.Errorf("%s does not support raw mode for this image", setup.Provisioner)
 		}
+
 		if !guestFilesHaveContent(setup) {
 			return fmt.Errorf("a manual configuration is required")
 		}
 	default:
 		return fmt.Errorf("invalid guest setup mode %q", setup.Mode)
 	}
+
 	return nil
 }
 
@@ -276,12 +295,14 @@ func (e *Engine) GuestSetup(ref string) (*GuestSetupView, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	setup := m.EffectiveGuestSetup()
 	primary := primaryInterface(m)
 	files := setup.Files
 	if len(files) == 0 && strings.TrimSpace(setup.Raw) != "" {
 		files = []types.GuestFile{{Name: primaryFile(setup.Provisioner), Content: setup.Raw}}
 	}
+
 	return &GuestSetupView{
 		Provisioner:  setup.Provisioner,
 		Mode:         setup.Mode,
@@ -299,6 +320,7 @@ func primaryInterface(m *types.VMManifest) types.VMInterface {
 	if len(interfaces) == 0 {
 		return types.VMInterface{}
 	}
+
 	return interfaces[0]
 }
 
@@ -307,6 +329,7 @@ func setPrimaryNetwork(m *types.VMManifest, addresses []string, gateway string, 
 		m.Addresses, m.Gateway, m.Nameservers = addresses, gateway, nameservers
 		return
 	}
+
 	interfaces := *m.Interfaces
 	interfaces[0].Addresses = addresses
 	interfaces[0].Gateway = gateway
@@ -319,19 +342,24 @@ func (e *Engine) SetGuestSetup(ctx context.Context, ref string, p GuestSetupPara
 	if err != nil {
 		return err
 	}
+
 	setup := types.GuestSetup{Provisioner: p.Provisioner, Mode: p.Mode, Hostname: strings.TrimSpace(p.Hostname), Files: p.Files}
 	if setup.Provisioner == "" {
 		setup.Provisioner = m.EffectiveGuestSetup().Provisioner
 	}
+
 	if setup.Mode == "" {
 		setup.Mode = types.GuestModeRaw
 	}
+
 	if err := validateGuestSetup(e.guestCapabilities(m), setup); err != nil {
 		return err
 	}
+
 	if err := validateGuestNetwork(p.Addresses, p.Gateway, p.Nameservers); err != nil {
 		return err
 	}
+
 	m.GuestSetup = &setup
 	setPrimaryNetwork(m, trimAddresses(p.Addresses), strings.TrimSpace(p.Gateway), trimAddresses(p.Nameservers))
 	return e.vms.Save(m)
@@ -347,6 +375,7 @@ func (e *Engine) ListVMs(ctx context.Context) ([]VMView, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	cached, err := database.ListVMStates(ctx)
 	if err != nil {
 		return nil, err
@@ -360,6 +389,7 @@ func (e *Engine) ListVMs(ctx context.Context) ([]VMView, error) {
 			if prev, ok := cached[m.ID]; ok && prev.Phase == string(vm.PhaseRunning) {
 				boot = prev.BootTime
 			}
+
 			if boot == 0 {
 				boot = time.Now().Unix()
 			}
@@ -393,14 +423,17 @@ func (e *Engine) StartVM(ctx context.Context, ref string) (vm.Status, error) {
 		if err != nil {
 			return vm.Spec{}, err
 		}
+
 		m = current
 		if err := e.checkUSBAssignments(ctx, m); err != nil {
 			return vm.Spec{}, err
 		}
+
 		spec, err := e.prepareSpec(ctx, m)
 		if err != nil {
 			return vm.Spec{}, err
 		}
+
 		log.Ctx(ctx).Info().Msg("Starting QEMU")
 		return spec, nil
 	})
@@ -464,11 +497,13 @@ func (e *Engine) DeleteVM(ctx context.Context, ref string) error {
 	if err != nil {
 		return err
 	}
-	defer lock.Close()
+
+	defer func() { _ = lock.Close() }()
 	m, err = e.vms.Load(m.ID)
 	if err != nil {
 		return err
 	}
+
 	if e.driver.Status(m.ID).Phase == vm.PhaseRunning {
 		return fmt.Errorf("vm %s is running; stop it first", m.Name)
 	}
@@ -489,9 +524,11 @@ func (e *Engine) DeleteVM(ctx context.Context, ref string) error {
 	if err != nil {
 		return err
 	}
+
 	if err := database.DeleteBackupSchedule(ctx, m.ID); err != nil {
 		return err
 	}
+
 	return database.DeleteVMState(ctx, m.ID)
 }
 
@@ -502,9 +539,11 @@ func (e *Engine) BootReconcile(ctx context.Context) error {
 		log.Ctx(ctx).Error().Err(err).Msg("Applying network configuration")
 		errs = errors.Join(errs, fmt.Errorf("apply networks: %w", err))
 	}
+
 	if err := e.refreshStates(ctx); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("refresh virtual machine states: %w", err))
 	}
+
 	return errs
 }
 
@@ -513,12 +552,14 @@ func (e *Engine) AutostartTargets() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	targets := []string{}
 	for _, m := range manifests {
 		if m.Autostart && e.driver.Status(m.ID).Phase != vm.PhaseRunning {
 			targets = append(targets, m.ID)
 		}
 	}
+
 	return targets, nil
 }
 
@@ -527,14 +568,17 @@ func (e *Engine) refreshStates(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	database, err := e.OpenDB(ctx)
 	if err != nil {
 		return err
 	}
+
 	cached, err := database.ListVMStates(ctx)
 	if err != nil {
 		return err
 	}
+
 	for _, m := range manifests {
 		st := e.driver.Status(m.ID)
 		boot := int64(0)
@@ -542,16 +586,19 @@ func (e *Engine) refreshStates(ctx context.Context) error {
 			if prev, ok := cached[m.ID]; ok && prev.Phase == string(vm.PhaseRunning) {
 				boot = prev.BootTime
 			}
+
 			if boot == 0 {
 				boot = time.Now().Unix()
 			}
 		}
+
 		if err := database.SetVMState(ctx, types.VMState{
 			ID: m.ID, Phase: string(st.Phase), PID: st.PID, BootTime: boot, SeenAt: time.Now().Unix(),
 		}); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -565,6 +612,7 @@ func (e *Engine) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	cached, err := database.ListVMStates(ctx)
 	if err != nil {
 		return err
@@ -578,6 +626,7 @@ func (e *Engine) Reconcile(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("autostart %s: %w", m.Name, err)
 			}
+
 			startedAt = time.Now().Unix()
 		}
 
@@ -586,6 +635,7 @@ func (e *Engine) Reconcile(ctx context.Context) error {
 			if prev, ok := cached[m.ID]; boot == 0 && ok && prev.Phase == string(vm.PhaseRunning) {
 				boot = prev.BootTime
 			}
+
 			if boot == 0 {
 				boot = time.Now().Unix()
 			}
@@ -606,6 +656,7 @@ func (e *Engine) cacheState(ctx context.Context, id string, st vm.Status, boot i
 	if err != nil {
 		return err
 	}
+
 	return database.SetVMState(ctx, types.VMState{
 		ID: id, Phase: string(st.Phase), PID: st.PID, BootTime: boot, SeenAt: time.Now().Unix(),
 	})
@@ -622,11 +673,13 @@ func (e *Engine) prepareSpec(ctx context.Context, m *types.VMManifest) (vm.Spec,
 				err = resolveErr
 				break
 			}
+
 			network.ID = nic.ID
 			network.MAC = nic.MAC
 			spec.Interfaces = append(spec.Interfaces, network)
 		}
 	}
+
 	if err != nil {
 		return vm.Spec{}, err
 	}
@@ -640,11 +693,13 @@ func (e *Engine) prepareSpec(ctx context.Context, m *types.VMManifest) (vm.Spec,
 	if err != nil {
 		return vm.Spec{}, err
 	}
+
 	setup := m.EffectiveGuestSetup()
 	hostname := setup.Hostname
 	if hostname == "" {
 		hostname = m.Name
 	}
+
 	seedPath := ""
 	ignitionPath := ""
 	manual := setup.Mode == types.GuestModeRaw || len(setup.Files) > 0
@@ -653,14 +708,17 @@ func (e *Engine) prepareSpec(ctx context.Context, m *types.VMManifest) (vm.Spec,
 		if prov == nil {
 			return vm.Spec{}, fmt.Errorf("unknown provisioner %q", setup.Provisioner)
 		}
+
 		setup, err = renderGuestSetup(setup, guestDataFromManifest(m, hostname, interfaces))
 		if err != nil {
 			return vm.Spec{}, err
 		}
+
 		primary := types.VMInterface{}
 		if len(interfaces) > 0 {
 			primary = interfaces[0]
 		}
+
 		params := provision.Params{
 			Hostname:      hostname,
 			MAC:           primary.MAC,
@@ -673,11 +731,13 @@ func (e *Engine) prepareSpec(ctx context.Context, m *types.VMManifest) (vm.Spec,
 		if err != nil {
 			return vm.Spec{}, err
 		}
+
 		log.Ctx(ctx).Info().Str("provisioner", setup.Provisioner).Msg("Preparing guest provisioning")
 		delivery, err := prov.Deliver(e.paths.VMDiskDir(m.ID), files)
 		if err != nil {
 			return vm.Spec{}, err
 		}
+
 		seedPath = delivery.SeedPath
 		ignitionPath = delivery.IgnitionPath
 	} else if setup.Provisioner == types.ProvisionerNone {
@@ -702,8 +762,10 @@ func (e *Engine) prepareSpec(ctx context.Context, m *types.VMManifest) (vm.Spec,
 		if err != nil {
 			return vm.Spec{}, err
 		}
+
 		spec.ISOs = append(spec.ISOs, vm.DiskSpec{ID: id, Path: media.Path})
 	}
+
 	spec.BootOrder = m.EffectiveBootOrder()
 	spec.ID, spec.Name = m.ID, m.Name
 	spec.CPUs, spec.MemoryMiB = m.CPUs, m.MemoryMiB
@@ -746,6 +808,7 @@ func guestNetworkConfig(mac string, addresses, nameservers []string, gateway str
 	if mac != "" {
 		config += "    match:\n      macaddress: " + mac + "\n    set-name: lab0\n"
 	}
+
 	config += "    optional: true\n"
 	if len(addresses) == 0 {
 		config += "    dhcp4: true\n"
@@ -755,6 +818,7 @@ func guestNetworkConfig(mac string, addresses, nameservers []string, gateway str
 				config += "        - " + ns + "\n"
 			}
 		}
+
 		return config
 	}
 
@@ -762,9 +826,11 @@ func guestNetworkConfig(mac string, addresses, nameservers []string, gateway str
 	for _, address := range addresses {
 		config += "      - " + address + "\n"
 	}
+
 	if gateway != "" {
 		config += "    routes:\n      - to: default\n        via: " + gateway + "\n"
 	}
+
 	if len(nameservers) > 0 {
 		config += "    nameservers:\n      addresses:\n"
 		for _, ns := range nameservers {
@@ -789,6 +855,7 @@ func (e *Engine) ShutdownVM(ref string) error {
 	if err != nil {
 		return err
 	}
+
 	return e.driver.Shutdown(m.ID)
 }
 
@@ -797,6 +864,7 @@ func (e *Engine) RebootVM(ref string) error {
 	if err != nil {
 		return err
 	}
+
 	return e.driver.Reboot(m.ID)
 }
 
@@ -805,20 +873,27 @@ func (e *Engine) ForceStopVM(ctx context.Context, ref string) error {
 	if err != nil {
 		return err
 	}
+
 	if err := e.driver.ForceStop(m.ID); err != nil {
 		return err
 	}
+
 	_ = e.cacheState(ctx, m.ID, vm.Status{Phase: vm.PhaseStopped}, 0)
 	return nil
 }
 
 func (e *Engine) prepareVMDisk(ctx context.Context, m *types.VMManifest) (string, error) {
+	if m.DiskSizeGiB <= 0 {
+		return "", nil
+	}
+
 	diskPath := filepath.Join(e.paths.VMDiskDir(m.ID), "disk.qcow2")
 	if _, err := os.Stat(diskPath); err == nil {
 		return diskPath, nil
 	} else if !os.IsNotExist(err) {
 		return "", err
 	}
+
 	base := ""
 	if m.Image != "" {
 		var err error
@@ -827,8 +902,10 @@ func (e *Engine) prepareVMDisk(ctx context.Context, m *types.VMManifest) (string
 			return "", err
 		}
 	}
+
 	if err := image.CreateVMDisk(ctx, base, diskPath, m.DiskSizeGiB); err != nil {
 		return "", err
 	}
+
 	return diskPath, nil
 }

@@ -47,12 +47,12 @@ func dialQMP(socket string, timeout time.Duration) (*qmpClient, error) {
 
 	var greeting qmpMessage
 	if err := c.dec.Decode(&greeting); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("qmp greeting: %w", err)
 	}
 
 	if _, err := c.execute("qmp_capabilities"); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("qmp capabilities: %w", err)
 	}
 
@@ -90,6 +90,7 @@ func (c *qmpClient) executeArguments(cmd string, arguments any) (json.RawMessage
 			if len(c.events) < 256 {
 				c.events = append(c.events, msg)
 			}
+
 			continue
 		}
 
@@ -109,6 +110,7 @@ func (c *qmpClient) awaitJobStatus(ctx context.Context, query, jobID, noun strin
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+
 		if err := c.conn.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
 			return err
 		}
@@ -117,6 +119,7 @@ func (c *qmpClient) awaitJobStatus(ctx context.Context, query, jobID, noun strin
 		if err != nil {
 			return err
 		}
+
 		jobs, err := extract(data)
 		if err != nil {
 			return err
@@ -129,6 +132,7 @@ func (c *qmpClient) awaitJobStatus(ctx context.Context, query, jobID, noun strin
 				break
 			}
 		}
+
 		if job == nil {
 			return fmt.Errorf("%s job %s vanished before completing", noun, jobID)
 		}
@@ -138,15 +142,18 @@ func (c *qmpClient) awaitJobStatus(ctx context.Context, query, jobID, noun strin
 			if _, err := c.executeArguments("job-dismiss", map[string]string{"id": jobID}); err != nil {
 				return err
 			}
+
 			if failure != "" {
 				return fmt.Errorf("%s job failed: %s", noun, failure)
 			}
+
 			return nil
 		}
 
 		if time.Now().After(deadline) {
 			return fmt.Errorf("%s did not finish within %s", noun, timeout)
 		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -180,14 +187,17 @@ func (d *Driver) Shutdown(id string) error {
 	if err != nil {
 		return err
 	}
-	defer lock.Close()
+
+	defer func() { _ = lock.Close() }()
 	if d.Status(id).Phase != PhaseRunning {
 		return nil
 	}
+
 	client, err := dialQMP(d.qmpPath(id), 3*time.Second)
 	if err != nil {
 		return err
 	}
+
 	defer client.close()
 	return client.powerdown()
 }
@@ -197,14 +207,17 @@ func (d *Driver) Reboot(id string) error {
 	if err != nil {
 		return err
 	}
-	defer lock.Close()
+
+	defer func() { _ = lock.Close() }()
 	if d.Status(id).Phase != PhaseRunning {
 		return nil
 	}
+
 	client, err := dialQMP(d.qmpPath(id), 3*time.Second)
 	if err != nil {
 		return err
 	}
+
 	defer client.close()
 	return client.reset()
 }

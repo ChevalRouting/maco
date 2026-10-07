@@ -23,20 +23,25 @@ func expandSchema(v any, definitions map[string]any, depth int) (any, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			schema, ok := expanded.(map[string]any)
 			if !ok {
 				return nil, fmt.Errorf("schema reference must resolve to an object")
 			}
+
 			for key, value := range x {
 				if key == "$ref" {
 					continue
 				}
+
 				sibling, err := expandSchema(value, definitions, depth+1)
 				if err != nil {
 					return nil, err
 				}
+
 				schema[key] = sibling
 			}
+
 			return schema, nil
 		}
 

@@ -39,6 +39,8 @@ var actionLabels = map[string]string{
 	"vm.disk.add":         "Add VM disk",
 	"vm.disk.grow":        "Grow VM disk",
 	"vm.disk.remove":      "Remove VM disk",
+	"vm.disk.replace":     "Replace VM boot disk",
+	"vm.disk.wipe":        "Wipe VM disk",
 	"vm.backup":           "Back up virtual machine",
 	"vm.backup.restore":   "Restore VM backup",
 	"vm.backup.delete":    "Delete VM backup",
@@ -142,6 +144,7 @@ func (s *Service) PublicPage(ctx context.Context, options PageOptions) (*Page, e
 					job = *refreshed
 				}
 			}
+
 			job.Label = Label(job.Action)
 
 			if !matchesPage(job, options) {

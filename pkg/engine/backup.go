@@ -59,11 +59,13 @@ func (e *Engine) BackupVM(ctx context.Context, ref string) (*BackupResult, error
 	if err != nil {
 		return nil, err
 	}
-	defer lock.Close()
+
+	defer func() { _ = lock.Close() }()
 	m, err = e.vms.Load(m.ID)
 	if err != nil {
 		return nil, err
 	}
+
 	live := e.driver.Status(m.ID).Phase == vm.PhaseRunning
 
 	source := e.paths.VMDiskDir(m.ID)
@@ -78,6 +80,7 @@ func (e *Engine) BackupVM(ctx context.Context, ref string) (*BackupResult, error
 			disks = append(disks, entry.Name())
 		}
 	}
+
 	if len(disks) == 0 {
 		return nil, fmt.Errorf("vm %s has no disks to back up", m.Name)
 	}
@@ -94,6 +97,7 @@ func (e *Engine) BackupVM(ctx context.Context, ref string) (*BackupResult, error
 	if err := os.MkdirAll(staging, 0o700); err != nil {
 		return nil, err
 	}
+
 	cleanup := true
 	defer func() {
 		if cleanup {
@@ -107,13 +111,16 @@ func (e *Engine) BackupVM(ctx context.Context, ref string) (*BackupResult, error
 		for i, disk := range disks {
 			backups[i] = vm.BackupJob{Source: filepath.Join(source, disk), Target: filepath.Join(staging, disk)}
 		}
+
 		frozen, err := e.driver.BackupDisksContext(ctx, m.ID, backups)
 		if err != nil {
 			if errors.Is(err, vm.ErrBackupCleanup) {
 				cleanup = false
 			}
+
 			return nil, fmt.Errorf("snapshot disks: %w", err)
 		}
+
 		consistent = frozen
 	} else {
 		for _, disk := range disks {
@@ -129,27 +136,33 @@ func (e *Engine) BackupVM(ctx context.Context, ref string) (*BackupResult, error
 	if err := os.MkdirAll(backupRoot, 0o700); err != nil {
 		return nil, err
 	}
+
 	publication, err := os.MkdirTemp(backupRoot, ".backup-*")
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(publication)
+
+	defer func() { _ = os.RemoveAll(publication) }()
 	for _, disk := range disks {
 		if err := copyFileContext(ctx, filepath.Join(staging, disk), filepath.Join(publication, disk)); err != nil {
 			return nil, fmt.Errorf("copy %s: %w", disk, err)
 		}
 	}
+
 	if err := copyFileContext(ctx, e.paths.ManifestPath(m.ID), filepath.Join(publication, "manifest.yml")); err != nil {
 		return nil, err
 	}
+
 	size, err := dirSize(publication)
 	if err != nil {
 		return nil, err
 	}
+
 	meta := BackupInfo{Timestamp: timestamp, VMName: m.Name, Disks: disks, Live: live, Consistent: consistent, SizeBytes: size, CreatedAt: time.Now().UTC().Format(time.RFC3339)}
 	if err := writeBackupMetadata(publication, meta); err != nil {
 		return nil, err
 	}
+
 	dest := filepath.Join(backupRoot, timestamp)
 	if err := os.Rename(publication, dest); err != nil {
 		return nil, err
@@ -172,6 +185,7 @@ func writeBackupMetadata(dir string, meta BackupInfo) error {
 	if err != nil {
 		return err
 	}
+
 	return os.WriteFile(filepath.Join(dir, "metadata.json"), data, 0o600)
 }
 
@@ -181,15 +195,18 @@ func dirSize(dir string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	for _, entry := range entries {
 		info, err := entry.Info()
 		if err != nil {
 			return 0, err
 		}
+
 		if info.Mode().IsRegular() {
 			total += info.Size()
 		}
 	}
+
 	return total, nil
 }
 
@@ -198,22 +215,27 @@ func (e *Engine) ListBackups(ref string) ([]BackupInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	root := e.paths.VMBackupDir(m.ID)
 	entries, err := os.ReadDir(root)
 	if errors.Is(err, os.ErrNotExist) {
 		return []BackupInfo{}, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	backups := make([]BackupInfo, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
+
 		info := readBackupMetadata(filepath.Join(root, entry.Name()), entry.Name())
 		backups = append(backups, info)
 	}
+
 	sort.Slice(backups, func(i, j int) bool { return backups[i].Timestamp > backups[j].Timestamp })
 	return backups, nil
 }
@@ -227,9 +249,11 @@ func readBackupMetadata(dir, timestamp string) BackupInfo {
 			return info
 		}
 	}
+
 	if size, err := dirSize(dir); err == nil {
 		info.SizeBytes = size
 	}
+
 	if entries, err := os.ReadDir(dir); err == nil {
 		for _, entry := range entries {
 			if strings.HasSuffix(entry.Name(), ".qcow2") {
@@ -237,6 +261,7 @@ func readBackupMetadata(dir, timestamp string) BackupInfo {
 			}
 		}
 	}
+
 	return info
 }
 
@@ -244,14 +269,17 @@ func (e *Engine) DeleteBackup(ref, timestamp string) error {
 	if !backupTimestamp.MatchString(timestamp) {
 		return fmt.Errorf("invalid backup id")
 	}
+
 	m, err := e.vms.Resolve(ref)
 	if err != nil {
 		return err
 	}
+
 	dest := filepath.Join(e.paths.VMBackupDir(m.ID), timestamp)
 	if _, err := os.Stat(dest); errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("backup %s not found", timestamp)
 	}
+
 	return os.RemoveAll(dest)
 }
 
@@ -259,31 +287,38 @@ func (e *Engine) RestoreVM(ctx context.Context, ref, timestamp string, asNew boo
 	if !backupTimestamp.MatchString(timestamp) {
 		return nil, fmt.Errorf("invalid backup id")
 	}
+
 	m, err := e.vms.Resolve(ref)
 	if err != nil {
 		return nil, err
 	}
+
 	backupDir := filepath.Join(e.paths.VMBackupDir(m.ID), timestamp)
 	entries, err := os.ReadDir(backupDir)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("backup %s not found", timestamp)
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	disks := make([]string, 0)
 	for _, entry := range entries {
 		if strings.HasSuffix(entry.Name(), ".qcow2") {
 			disks = append(disks, entry.Name())
 		}
 	}
+
 	if len(disks) == 0 {
 		return nil, fmt.Errorf("backup %s has no disks", timestamp)
 	}
+
 	backupManifest, err := os.ReadFile(filepath.Join(backupDir, "manifest.yml"))
 	if err != nil {
 		return nil, err
 	}
+
 	restored, err := e.vms.Parse(backupManifest)
 	if err != nil {
 		return nil, fmt.Errorf("parse backup manifest: %w", err)
@@ -292,6 +327,7 @@ func (e *Engine) RestoreVM(ctx context.Context, ref, timestamp string, asNew boo
 	if asNew {
 		return e.restoreAsNew(ctx, restored, backupDir, disks)
 	}
+
 	return e.restoreInPlace(ctx, m.ID, restored, backupDir, disks)
 }
 
@@ -300,31 +336,38 @@ func (e *Engine) restoreInPlace(ctx context.Context, id string, restored *types.
 	if err != nil {
 		return nil, err
 	}
-	defer lock.Close()
+
+	defer func() { _ = lock.Close() }()
 	if e.driver.Status(id).Phase == vm.PhaseRunning {
 		return nil, fmt.Errorf("vm is running; stop it before restoring")
 	}
+
 	diskDir := e.paths.VMDiskDir(id)
 	staging, err := os.MkdirTemp(filepath.Dir(diskDir), ".restore-*")
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(staging)
+
+	defer func() { _ = os.RemoveAll(staging) }()
 	for _, disk := range disks {
 		if err := copyFileContext(ctx, filepath.Join(backupDir, disk), filepath.Join(staging, disk)); err != nil {
 			return nil, fmt.Errorf("copy %s: %w", disk, err)
 		}
 	}
+
 	restored.ID = id
 	if err := os.RemoveAll(diskDir); err != nil {
 		return nil, err
 	}
+
 	if err := os.Rename(staging, diskDir); err != nil {
 		return nil, err
 	}
+
 	if err := e.vms.Save(restored); err != nil {
 		return nil, err
 	}
+
 	exposeInterfaces(restored)
 	return restored, nil
 }
@@ -338,11 +381,13 @@ func (e *Engine) restoreAsNew(ctx context.Context, restored *types.VMManifest, b
 			(*restored.Interfaces)[i].MAC = ""
 		}
 	}
+
 	diskDir := e.paths.VMDiskDir(restored.ID)
 	staging, err := os.MkdirTemp(filepath.Dir(diskDir), ".restore-*")
 	if err != nil {
 		return nil, err
 	}
+
 	cleanup := true
 	defer func() {
 		if cleanup {
@@ -354,14 +399,17 @@ func (e *Engine) restoreAsNew(ctx context.Context, restored *types.VMManifest, b
 			return nil, fmt.Errorf("copy %s: %w", disk, err)
 		}
 	}
+
 	exposeInterfaces(restored)
 	if err := e.vms.Save(restored); err != nil {
 		return nil, err
 	}
+
 	if err := os.Rename(staging, diskDir); err != nil {
 		_ = e.vms.Delete(restored.ID)
 		return nil, err
 	}
+
 	cleanup = false
 	return restored, nil
 }
@@ -375,17 +423,21 @@ func uniqueVMName(store interface {
 			existing[m.Name] = true
 		}
 	}
+
 	if len(base) > 63 {
 		base = base[:63]
 	}
+
 	if !existing[base] {
 		return base
 	}
+
 	for i := 2; ; i++ {
 		candidate := fmt.Sprintf("%s-%d", base, i)
 		if len(candidate) > 63 {
 			candidate = candidate[:63]
 		}
+
 		if !existing[candidate] {
 			return candidate
 		}
@@ -397,6 +449,7 @@ func copyFileContext(ctx context.Context, src, dst string) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = in.Close() }()
 
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
@@ -421,5 +474,6 @@ func (r *contextReader) Read(data []byte) (int, error) {
 	if err := r.ctx.Err(); err != nil {
 		return 0, err
 	}
+
 	return r.reader.Read(data)
 }

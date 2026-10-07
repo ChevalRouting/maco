@@ -29,6 +29,7 @@ func TestTemplateCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if created.ID == "" || created.Name != "flatcar-profile" || created.Spec.Name != "" {
 		t.Fatalf("unexpected created template: %+v", created)
 	}
@@ -51,9 +52,11 @@ func TestTemplateCRUD(t *testing.T) {
 	if _, err := e.CreateTemplate(ctx, "", "", spec); err == nil {
 		t.Fatal("accepted empty name")
 	}
+
 	if _, err := e.CreateTemplate(ctx, "bad name!", "", spec); err == nil {
 		t.Fatal("accepted invalid name")
 	}
+
 	if _, err := e.GetTemplate("../escape"); err == nil {
 		t.Fatal("accepted unsafe ID")
 	}
@@ -61,9 +64,11 @@ func TestTemplateCRUD(t *testing.T) {
 	if err := e.DeleteTemplate(ctx, created.ID); err != nil {
 		t.Fatal(err)
 	}
+
 	if all, err := e.ListTemplates(); err != nil || len(all) != 0 {
 		t.Fatalf("listing after delete: %v %v", all, err)
 	}
+
 	if err := e.DeleteTemplate(ctx, created.ID); err == nil {
 		t.Fatal("deleted missing template")
 	}
@@ -86,9 +91,11 @@ func TestTemplateInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if spec.Name != "web-01" || spec.CPUs != 8 || spec.MemoryMiB != 2048 || spec.DiskSizeGiB != 20 {
 		t.Fatalf("unexpected spec: %+v", spec)
 	}
+
 	if !spec.Autostart || len(spec.Disks) != 1 || spec.Image != "flatcar-stable-arm64" {
 		t.Fatalf("inherited fields wrong: %+v", spec)
 	}
@@ -96,9 +103,11 @@ func TestTemplateInstance(t *testing.T) {
 	if _, err := e.TemplateInstance(tpl.ID, TemplateInstanceParams{Name: ""}); err == nil {
 		t.Fatal("accepted empty name")
 	}
+
 	if _, err := e.TemplateInstance(tpl.ID, TemplateInstanceParams{Name: "bad name!"}); err == nil {
 		t.Fatal("accepted invalid name")
 	}
+
 	if _, err := e.TemplateInstance("00000000-0000-0000-0000-000000000000", TemplateInstanceParams{Name: "web-01"}); err == nil {
 		t.Fatal("instantiated missing template")
 	}

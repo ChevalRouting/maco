@@ -46,6 +46,7 @@ func TestHardwareUpdates(t *testing.T) {
 	if err := os.MkdirAll(run, 0o700); err != nil {
 		t.Fatal(err)
 	}
+
 	defer func() { _ = os.RemoveAll(run) }()
 
 	pid := filepath.Join(run, "qemu.pid")
