@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --terminal-background: #101216;
+  --terminal-foreground: #e5e7eb;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  height: 100dvh;
+}
+
+html,
+body {
+  overscroll-behavior: none;
+}
+
+body {
+  touch-action: manipulation;
+  background-color: hsl(var(--background));
+}
+
+html.standalone-app {
+  touch-action: pan-x pan-y;
+}
+
+.app-frame {
+  height: 100%;
+  height: 100dvh;
+}
+
+.app-frame > div {
+  height: 100%;
+  min-height: 0;
+}
+
+.app-frame main {
+  min-height: 0;
+}
+
+@media (display-mode: standalone) {
+  html,
+  body,
+  #root {
+    height: 100vh;
+  }
+
+  html:has(.app-frame),
+  body:has(.app-frame),
+  #root:has(.app-frame) {
+    overflow: hidden;
+  }
+
+  html {
+    --app-top-inset: env(safe-area-inset-top, 0px);
+  }
+
+  .app-frame {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 100vh;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    @apply bg-background;
+  }
+
+  .mobile-nav.safe-bottom {
+    --nav-bottom-inset: clamp(0px, env(safe-area-inset-bottom, 0px), 34px);
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    height: calc(3.5rem + 1px + var(--nav-bottom-inset));
+    max-height: calc(3.5rem + 1px + var(--nav-bottom-inset));
+    padding-bottom: var(--nav-bottom-inset);
+    overflow: hidden;
+  }
+}
+
+@media (display-mode: standalone) and (min-width: 768px) {
+  .app-frame {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+@media (max-width: 600px) {
+  [data-sonner-toaster][data-y-position='top'] {
+    top: calc(var(--app-top-inset, 0px) + 3.5rem);
+  }
+}
+
+[role="tablist"] {
+  min-width: 0;
+  max-width: 100%;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+[role="tablist"]::-webkit-scrollbar {
+  display: none;
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    @apply border-border;
+  }
+}
+
+@layer base {
+  a:focus-visible, summary:focus-visible, input[type="radio"]:focus-visible, input[type="checkbox"]:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+  [hidden] { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin { animation: none; }
+}
+
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']),
+  select:not([multiple]),
+  textarea:not(.xterm-helper-textarea) {
+    font-size: 16px;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible { outline: 2px solid Highlight !important; outline-offset: 2px; }
+}
+
+.utilization-charts {
+  --chart-primary: hsl(var(--primary));
+  --chart-secondary: hsl(var(--success));
+}
+
+.terminal-surface {
+  background: var(--terminal-background);
+}
+
+.api-reference {
+  background: #fff;
+  color-scheme: light;
+}
+
+.standalone-app [role="dialog"].h-full {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

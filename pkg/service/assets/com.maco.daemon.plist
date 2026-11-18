@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>{{.DaemonLabel}}</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{.Binary}}</string>
+		<string>--data-dir</string>
+		<string>{{.DataDir}}</string>
+		<string>serve</string>
+		<string>--addr</string>
+		<string>{{.Addr}}</string>
+{{- if .TLSCert}}
+		<string>--tls-cert</string>
+		<string>{{.TLSCert}}</string>
+		<string>--tls-key</string>
+		<string>{{.TLSKey}}</string>
+{{- end}}
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>{{.Path}}</string>
+		<key>MACO_DATA_DIR</key>
+		<string>{{.DataDir}}</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+	<key>StandardOutPath</key>
+	<string>{{.LogDir}}/daemon.log</string>
+	<key>StandardErrorPath</key>
+	<string>{{.LogDir}}/daemon.log</string>
+</dict>
+</plist>

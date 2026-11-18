@@ -1,0 +1,9 @@
+**
+!tools/
+!tools/firmware/
+!tools/firmware/Dockerfile
+!tools/firmware/logo.py
+!tools/firmware/strip-network.sh
+!web/
+!web/public/
+!web/public/logo.svg

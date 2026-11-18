@@ -1,0 +1,27 @@
+#!/bin/sh
+/bin/busybox --install -s
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mount -t devtmpfs dev /dev
+mkdir -p /tmp
+modprobe virtio_net
+for kv in $(cat /proc/cmdline); do
+  case $kv in bench.*=*) key=${kv%%=*}; eval "${key#bench.}=\"${kv#*=}\"" ;; esac
+done
+
+ip link set lo up
+ip link set eth0 mtu "${mtu:-1500}" up
+ip addr add "$ip/24" dev eth0
+echo "BENCH READY role=$role ip=$ip"
+if [ "$role" = server ]; then
+  exec iperf3 -s
+fi
+
+until ping -c 1 -W 1 "$peer" >/dev/null 2>&1; do sleep 0.5; done
+for args in "-t 10" "-t 10 -R" "-t 10 -P 4" "-t 10 -P 4 -R"; do
+  echo "BENCH RUN $args"
+  iperf3 -c "$peer" $args 2>&1 | grep -E 'receiver|error'
+done
+
+sleep 1
+poweroff -f

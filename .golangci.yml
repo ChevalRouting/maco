@@ -1,0 +1,58 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - unconvert
+    - nolintlint
+    - wsl_v5
+  settings:
+    errcheck:
+      check-blank: false
+      disable-default-exclusions: true
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -ST1003
+        - -QF1008
+        - -ST1020
+        - -ST1021
+        - -ST1022
+    nolintlint:
+      require-specific: true
+      require-explanation: false
+    wsl_v5:
+      default: none
+      enable:
+        - after-block
+        - err
+  exclusions:
+    generated: strict
+    paths:
+      - web/
+      - ui/
+      - pkg/db/generated/
+
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: strict
+    paths:
+      - ui/
+      - pkg/db/generated/
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

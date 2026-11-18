@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+
+/usr/local/bin/maco install
+
+exit 0

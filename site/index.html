@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>maco, virtual machines for macOS</title>
+<meta name="description" content="A virtual machine manager for macOS on Apple Silicon, with a web UI, a CLI and an HTTP API.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f5f5f7;
+  --fg: #1d1d1f;
+  --muted: #6e6e73;
+  --card: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --accent: #0064e1;
+  --code: #f0f0f3;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e;
+    --fg: #f5f5f7;
+    --muted: #98989d;
+    --card: #2c2c2e;
+    --border: rgba(255, 255, 255, 0.08);
+    --accent: #0a84ff;
+    --code: #232326;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 17px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+header.hero {
+  padding: 88px 0 56px;
+  text-align: center;
+  background:
+    radial-gradient(60% 60% at 20% 0%, rgba(0, 122, 255, 0.16), transparent 70%),
+    radial-gradient(50% 50% at 85% 10%, rgba(175, 82, 222, 0.12), transparent 70%);
+}
+.logo {
+  width: 96px; height: 96px; margin: 0 auto 20px;
+  display: grid; place-items: center;
+  background: var(--card); border-radius: 22px; box-shadow: var(--shadow);
+}
+.logo img { width: 64px; height: 64px; }
+h1 { margin: 0; font-size: 56px; line-height: 1.05; letter-spacing: -0.03em; }
+.tagline { margin: 14px auto 0; max-width: 620px; font-size: 21px; color: var(--muted); }
+.actions { margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.button {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 22px; border-radius: 980px; font-weight: 500;
+  background: var(--accent); color: #fff;
+}
+.button:hover { text-decoration: none; filter: brightness(1.08); }
+.button.secondary { background: var(--card); color: var(--fg); box-shadow: inset 0 0 0 1px var(--border); }
+.meta { margin-top: 14px; font-size: 14px; color: var(--muted); }
+section { padding: 56px 0; }
+h2 { margin: 0 0 8px; font-size: 32px; letter-spacing: -0.02em; }
+.lead { margin: 0 0 28px; color: var(--muted); }
+.shot { margin: 0; }
+.shot img { width: 100%; display: block; border-radius: 14px; box-shadow: var(--shadow); background: var(--card); }
+.shot figcaption { margin-top: 10px; font-size: 14px; color: var(--muted); text-align: center; }
+.grid { display: grid; gap: 28px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 28px; }
+.features { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.feature { background: var(--card); border-radius: 14px; padding: 20px 22px; box-shadow: var(--shadow); }
+.feature h3 { margin: 0 0 6px; font-size: 17px; }
+.feature p { margin: 0; font-size: 15px; color: var(--muted); }
+pre {
+  margin: 0; padding: 18px 20px; overflow-x: auto;
+  background: var(--code); border-radius: 12px;
+  font: 14px/1.6 ui-monospace, "SF Mono", Menlo, monospace;
+}
+.steps { display: grid; gap: 16px; }
+.phone { display: flex; gap: 28px; align-items: center; }
+.phone img { width: 260px; flex: none; }
+footer { padding: 40px 0 56px; color: var(--muted); font-size: 14px; text-align: center; }
+@media (max-width: 760px) {
+  header.hero { padding: 56px 0 40px; }
+  h1 { font-size: 40px; }
+  .tagline { font-size: 18px; }
+  .grid, .features { grid-template-columns: 1fr; }
+  .phone { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div class="logo"><img src="logo.svg" alt=""></div>
+    <h1>maco</h1>
+    <p class="tagline">Virtual machines for macOS on Apple Silicon, with a web UI, a CLI and an HTTP API. One binary, nothing else to install.</p>
+    <div class="actions">
+      <a class="button" href="downloads/maco-@VERSION@.pkg">Download maco @VERSION@</a>
+      <a class="button secondary" href="https://github.com/ChevalRouting/maco">Source on GitHub</a>
+    </div>
+    <p class="meta">Apple Silicon · <a href="downloads/maco-@VERSION@-darwin-arm64.tar.gz">binary archive</a> · <a href="downloads/SHA256SUMS">checksums</a></p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section>
+    <figure class="shot">
+      <img src="screenshots/vm-index.png" alt="The list of virtual machines with live previews">
+    </figure>
+  </section>
+
+  <section>
+    <div class="features">
+      <div class="feature"><h3>Self-contained</h3><p>The web UI, a patched QEMU and its libraries are built in. State lives in SQLite. No Homebrew, no Redis.</p></div>
+      <div class="feature"><h3>Native networking</h3><p>User NAT, isolated switches, macOS bridges with VLANs and vmnet bridging, with a live topology view.</p></div>
+      <div class="feature"><h3>Consoles in the browser</h3><p>A graphical console and a serial console for every running VM, on desktop and on iPhone.</p></div>
+      <div class="feature"><h3>Cloud images</h3><p>Ubuntu, Debian, Fedora, Rocky, Alma, Alpine and Flatcar, provisioned with cloud-init or Ignition.</p></div>
+      <div class="feature"><h3>Operations</h3><p>Disks, snapshots, scheduled backups with retention, USB passthrough and utilization metrics.</p></div>
+      <div class="feature"><h3>Automation</h3><p>Every action is in the CLI and the HTTP API, with an OpenTofu and Terraform provider.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Install</h2>
+    <p class="lead">Open the package, or install the archive by hand, then set the admin password.</p>
+    <div class="steps">
+<pre>curl -LO @URL@/downloads/maco-@VERSION@-darwin-arm64.tar.gz
+tar -xzf maco-@VERSION@-darwin-arm64.tar.gz
+sudo ./maco install
+sudo maco user passwd admin --password 'choose-a-password'
+open https://localhost:8080</pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>Networks and consoles</h2>
+    <p class="lead">Bridge VMs onto your LAN or a VLAN, and open their consoles from the browser.</p>
+    <figure class="shot">
+      <img src="screenshots/networks.png" alt="Networks with their topology">
+    </figure>
+    <div class="grid">
+      <figure class="shot"><img src="screenshots/vm-console.png" alt="Graphical console"><figcaption>Graphical console</figcaption></figure>
+      <figure class="shot"><img src="screenshots/vm-serial.png" alt="Serial console"><figcaption>Serial console</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>From the command line</h2>
+    <p class="lead">The CLI drives the same engine as the web UI.</p>
+<pre>sudo maco image pull debian-12-arm64
+sudo maco vm new web1 --image debian-12-arm64 --guest-config user-data.yaml
+sudo maco vm start web1
+sudo maco vm console web1</pre>
+  </section>
+
+  <section>
+    <div class="grid">
+      <figure class="shot"><img src="screenshots/login.png" alt="Sign in"><figcaption>Sign in</figcaption></figure>
+      <figure class="shot"><img src="screenshots/vm-index-dark.png" alt="Dark mode"><figcaption>Dark mode</figcaption></figure>
+    </div>
+    <div class="phone" style="margin-top: 28px">
+      <img class="shot" src="screenshots/phone-vms.png" alt="maco on iPhone" style="border-radius: 22px; box-shadow: var(--shadow)">
+      <div>
+        <h2>On your phone</h2>
+        <p class="lead">The same app on iPhone and iPad, installable to the home screen.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">maco @VERSION@ · <a href="https://github.com/ChevalRouting/maco">GitHub</a> · <a href="https://github.com/ChevalRouting/maco/tree/main/docs">Documentation</a></div>
+</footer>
+</body>
+</html>

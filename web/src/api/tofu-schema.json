@@ -1,0 +1,476 @@
+{
+  "format_version": "1.0",
+  "provider_schemas": {
+    "registry.opentofu.org/chevalrouting/maco": {
+      "provider": {
+        "version": 0,
+        "block": {
+          "attributes": {
+            "api_key": {
+              "type": "string",
+              "description": "Administrator API key. Falls back to MACO_API_KEY.",
+              "description_kind": "plain",
+              "optional": true,
+              "sensitive": true
+            },
+            "ca_file": {
+              "type": "string",
+              "description": "PEM file with extra CA certificates to trust, for a maco server behind a private CA. Falls back to MACO_CA_FILE.",
+              "description_kind": "plain",
+              "optional": true
+            },
+            "endpoint": {
+              "type": "string",
+              "description": "Maco server URL, optionally ending in /api. Falls back to MACO_ENDPOINT.",
+              "description_kind": "plain",
+              "optional": true
+            },
+            "job_timeout_seconds": {
+              "type": "number",
+              "description": "Maximum wait per asynchronous job. Defaults to 1800 seconds.",
+              "description_kind": "plain",
+              "optional": true
+            }
+          },
+          "description": "Manage maco resources through its authenticated HTTP API.",
+          "description_kind": "plain"
+        }
+      },
+      "resource_schemas": {
+        "maco_network": {
+          "version": 0,
+          "block": {
+            "attributes": {
+              "address": {
+                "type": "string",
+                "description": "Host IPv4 CIDR on a bridge. Does not configure guest addressing.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "id": {
+                "type": "string",
+                "description": "Network UUID, for maco_vm.network.",
+                "description_kind": "plain",
+                "computed": true
+              },
+              "members": {
+                "type": [
+                  "list",
+                  "string"
+                ],
+                "description": "Host interfaces to join to a native bridge.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "mode": {
+                "type": "string",
+                "description": "bridge, switch, vmnet-bridged, user, or vlan. Defaults to bridge. Changes replace the network.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "name": {
+                "type": "string",
+                "description": "Network name. Changes replace the network.",
+                "description_kind": "plain",
+                "required": true
+              },
+              "parent": {
+                "type": "string",
+                "description": "Parent host interface for vlan mode.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "tag": {
+                "type": "number",
+                "description": "VLAN ID for vlan mode, 1 to 4094.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "uplink": {
+                "type": "string",
+                "description": "Host interface for vmnet-bridged.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "vlans": {
+                "nested_type": {
+                  "attributes": {
+                    "parent": {
+                      "type": "string",
+                      "description": "Host interface carrying the VLAN.",
+                      "description_kind": "plain",
+                      "required": true
+                    },
+                    "tag": {
+                      "type": "number",
+                      "description": "VLAN ID, 1 to 4094.",
+                      "description_kind": "plain",
+                      "required": true
+                    }
+                  },
+                  "nesting_mode": "list"
+                },
+                "description": "VLAN interfaces to create and join to a native bridge.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              }
+            },
+            "description": "A maco host network that VMs attach to. Name and mode changes replace it; other settings update in place.",
+            "description_kind": "plain"
+          }
+        },
+        "maco_template": {
+          "version": 0,
+          "block": {
+            "attributes": {
+              "addresses": {
+                "type": [
+                  "list",
+                  "string"
+                ],
+                "description": "Static IPv4 or IPv6 CIDR addresses for the primary interface, used by guest provisioning. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "autostart": {
+                "type": "bool",
+                "description": "Automatically start during host reconciliation.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "cpus": {
+                "type": "number",
+                "description": "Virtual CPUs, at least 1. Defaults to 2.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "description": {
+                "type": "string",
+                "description": "Human description.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "disk_size_gib": {
+                "type": "number",
+                "description": "Primary disk size in GiB, at least 1. Defaults to 20.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "disks": {
+                "nested_type": {
+                  "attributes": {
+                    "name": {
+                      "type": "string",
+                      "description": "Disk name, unique within the VM.",
+                      "description_kind": "plain",
+                      "required": true
+                    },
+                    "size_gib": {
+                      "type": "number",
+                      "description": "Disk size in GiB.",
+                      "description_kind": "plain",
+                      "required": true
+                    }
+                  },
+                  "nesting_mode": "set"
+                },
+                "description": "Additional data disks matched by name. On a VM they are added, grown, and removed in place; removal destroys the disk.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "gateway": {
+                "type": "string",
+                "description": "Primary interface gateway IP address. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "guest_data": {
+                "type": "string",
+                "description": "Raw cloud-init, or Butane for ignition. maco expands [[ ]] placeholders from the VM. Stored in state; protect the state backend. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true,
+                "sensitive": true
+              },
+              "guest_provisioner": {
+                "type": "string",
+                "description": "Guest provisioner: none (the default), cloud-init, or ignition. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "hostname": {
+                "type": "string",
+                "description": "Guest hostname for provisioning. Empty uses the VM name. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "id": {
+                "type": "string",
+                "description": "Template UUID.",
+                "description_kind": "plain",
+                "computed": true
+              },
+              "image": {
+                "type": "string",
+                "description": "Image key from the maco catalog or media ID.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "memory_mib": {
+                "type": "number",
+                "description": "Memory in MiB, at least 64. Defaults to 2048.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "name": {
+                "type": "string",
+                "description": "Unique template name, an RFC 1123 hostname.",
+                "description_kind": "plain",
+                "required": true
+              },
+              "nameservers": {
+                "type": [
+                  "list",
+                  "string"
+                ],
+                "description": "DNS server IP addresses for guest provisioning. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "network": {
+                "type": "string",
+                "description": "Primary interface network UUID, or user for NAT (the default). On a VM, changes move the primary interface in place, hotplugged when running; the guest keeps its own address configuration.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "tags": {
+                "type": [
+                  "set",
+                  "string"
+                ],
+                "description": "Freeform labels. Updated in place.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              }
+            },
+            "description": "A saved maco machine profile used to pre-fill VM creation. Changing it does not affect VMs already created from it.",
+            "description_kind": "plain"
+          }
+        },
+        "maco_vm": {
+          "version": 0,
+          "block": {
+            "attributes": {
+              "addresses": {
+                "type": [
+                  "list",
+                  "string"
+                ],
+                "description": "Static IPv4 or IPv6 CIDR addresses for the primary interface, used by guest provisioning. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "autostart": {
+                "type": "bool",
+                "description": "Automatically start during host reconciliation.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "cpus": {
+                "type": "number",
+                "description": "Virtual CPUs, at least 1. Defaults to 2.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "disk_size_gib": {
+                "type": "number",
+                "description": "Primary disk size in GiB, at least 1. Defaults to 20.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "disks": {
+                "nested_type": {
+                  "attributes": {
+                    "name": {
+                      "type": "string",
+                      "description": "Disk name, unique within the VM.",
+                      "description_kind": "plain",
+                      "required": true
+                    },
+                    "size_gib": {
+                      "type": "number",
+                      "description": "Disk size in GiB.",
+                      "description_kind": "plain",
+                      "required": true
+                    }
+                  },
+                  "nesting_mode": "set"
+                },
+                "description": "Additional data disks matched by name. On a VM they are added, grown, and removed in place; removal destroys the disk.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "gateway": {
+                "type": "string",
+                "description": "Primary interface gateway IP address. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "guest_data": {
+                "type": "string",
+                "description": "Raw cloud-init, or Butane for ignition. maco expands [[ ]] placeholders from the VM. Stored in state; protect the state backend. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true,
+                "sensitive": true
+              },
+              "guest_provisioner": {
+                "type": "string",
+                "description": "Guest provisioner: none (the default), cloud-init, or ignition. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "hostname": {
+                "type": "string",
+                "description": "Guest hostname for provisioning. Empty uses the VM name. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "id": {
+                "type": "string",
+                "description": "VM UUID.",
+                "description_kind": "plain",
+                "computed": true
+              },
+              "image": {
+                "type": "string",
+                "description": "Image key from the maco catalog or media ID. Changes replace the VM.",
+                "description_kind": "plain",
+                "required": true
+              },
+              "mac_address": {
+                "type": "string",
+                "description": "MAC address of the primary interface, stable for the life of the VM.",
+                "description_kind": "plain",
+                "computed": true
+              },
+              "memory_mib": {
+                "type": "number",
+                "description": "Memory in MiB, at least 64. Defaults to 2048.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "name": {
+                "type": "string",
+                "description": "VM name. Changes replace the VM.",
+                "description_kind": "plain",
+                "required": true
+              },
+              "nameservers": {
+                "type": [
+                  "list",
+                  "string"
+                ],
+                "description": "DNS server IP addresses for guest provisioning. On a VM, changes update the stored guest setup in place; the guest applies it the next time it runs provisioning (Flatcar after flatcar-reset), from a VM started by maco after the change.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "network": {
+                "type": "string",
+                "description": "Primary interface network UUID, or user for NAT (the default). On a VM, changes move the primary interface in place, hotplugged when running; the guest keeps its own address configuration.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "running": {
+                "type": "bool",
+                "description": "Desired power state, false by default. Setting false force-stops the VM; shut down the guest first if needed.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              },
+              "tags": {
+                "type": [
+                  "set",
+                  "string"
+                ],
+                "description": "Freeform labels. Updated in place.",
+                "description_kind": "plain",
+                "optional": true,
+                "computed": true
+              }
+            },
+            "description": "A maco virtual machine created from an image. Destroying it deletes its managed storage.",
+            "description_kind": "plain"
+          }
+        }
+      },
+      "data_source_schemas": {
+        "maco_network": {
+          "version": 0,
+          "block": {
+            "attributes": {
+              "address": {
+                "type": "string",
+                "description": "Host address on the bridge, if any.",
+                "description_kind": "plain",
+                "computed": true
+              },
+              "id": {
+                "type": "string",
+                "description": "Network UUID, for maco_vm.network.",
+                "description_kind": "plain",
+                "computed": true
+              },
+              "mode": {
+                "type": "string",
+                "description": "Network mode.",
+                "description_kind": "plain",
+                "computed": true
+              },
+              "name": {
+                "type": "string",
+                "description": "Network name.",
+                "description_kind": "plain",
+                "required": true
+              }
+            },
+            "description": "Look up an existing maco network by name without managing it.",
+            "description_kind": "plain"
+          }
+        }
+      }
+    }
+  }
+}

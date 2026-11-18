@@ -1,0 +1,334 @@
+version: '3'
+
+vars:
+  BINARY: '{{.BINARY | default "maco"}}'
+  PKG: '{{.PKG | default "./cmd/maco"}}'
+  VERSION: '{{.VERSION | default "dev"}}'
+  LDFLAGS: '{{.LDFLAGS | default (printf "-X main.VERSION=%s" .VERSION)}}'
+  GOFLAGS: '{{.GOFLAGS | default ""}}'
+  GOTAGS: '{{.GOTAGS | default ""}}'
+  EMBED: '{{.EMBED | default "0"}}'
+  CC: '{{.CC | default "cc"}}'
+  FIRMWARE_ASSET: pkg/vm/firmware/assets/maco-aarch64-code.fd.bz2
+  HELPER_ASSET: pkg/net/helper/assets/maco-net-helper
+  QEMU_ARCHIVE: build/qemu/qemu.tar.gz
+  PKG_ID: '{{.PKG_ID | default "com.maco.pkg"}}'
+  PKG_STAGING: build/pkgroot
+  PKG_SCRIPTS: build/scripts
+  SWAG_VERSION: v2.0.0-rc6
+  TOFU_PROVIDER: '{{.TOFU_PROVIDER | default "../terraform-maco-provider"}}'
+  TOFU_PROVIDER_VERSION: '{{.TOFU_PROVIDER_VERSION | default "0.1.0"}}'
+
+tasks:
+  default:
+    desc: Build the maco binary and native networking helper
+    cmds:
+      - task: build
+
+  build:
+    desc: Build maco (EMBED=1 builds and embeds the web UI)
+    vars:
+      TAGFLAGS: '{{if eq .EMBED "1"}}-tags {{printf "prod,%s" .GOTAGS | trimSuffix "," | shellQuote}}{{else if .GOTAGS}}-tags {{.GOTAGS | shellQuote}}{{end}}'
+    cmds:
+      - task: '{{if eq .EMBED "1"}}prod-assets{{else}}maco-net-helper{{end}}'
+      - '{{if eq .EMBED "1"}}PKG_CONFIG_PATH="$PWD/build/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" CGO_CFLAGS="${CGO_CFLAGS:--O2 -g} -DMACO_STATIC_LIBUSB" {{end}}go build {{.GOFLAGS}} {{.TAGFLAGS}} -ldflags {{.LDFLAGS | shellQuote}} -o {{.BINARY | shellQuote}} {{.PKG | shellQuote}}'
+
+  build-mcp:
+    desc: Build the standalone stdio MCP server
+    dir: mcp
+    cmds:
+      - go build {{.GOFLAGS}} -ldflags {{.LDFLAGS | shellQuote}} -o ../maco-mcp ./cmd/maco-mcp
+
+  build-ui:
+    desc: Build maco with the embedded web UI
+    cmds:
+      - task: build
+        vars:
+          EMBED: '1'
+
+  deploy:
+    interactive: true
+    desc: Build production maco with the bundled QEMU, upload over SSH, sign, and reinstall (HOST=user@mac)
+    requires:
+      vars: [HOST]
+    preconditions:
+      - sh: 'test -n {{.HOST | shellQuote}}'
+        msg: Set HOST to an SSH hostname or user@host
+      - sh: command -v ssh && command -v scp
+        msg: SSH and SCP are required
+    cmds:
+      - task: build-ui
+      - bash tools/deploy.sh {{.HOST | shellQuote}} {{.BINARY | shellQuote}} {{.CLI_ARGS}}
+
+  prod-assets:
+    desc: Build everything a production binary embeds (web UI, provider downloads, net helper, bundled QEMU)
+    cmds:
+      - task: web-build
+      - task: qemu
+      - task: static-libusb
+      - cp {{.QEMU_ARCHIVE | shellQuote}} pkg/qemu/assets/qemu.tar.gz
+
+  static-libusb:
+    desc: Write a pkg-config file that links libusb statically, so production maco needs no Homebrew libusb at runtime
+    cmds:
+      - mkdir -p build/pkgconfig
+      - |
+        libdir=$(pkg-config --variable=libdir libusb-1.0)
+        test -f "$libdir/libusb-1.0.a" || { echo "no static libusb in $libdir (brew install libusb)" >&2; exit 1; }
+        printf 'Name: libusb-1.0\nDescription: libusb linked statically\nVersion: %s\nCflags: %s\nLibs: %s/libusb-1.0.a -lobjc -framework IOKit -framework CoreFoundation -framework Security\n' \
+          "$(pkg-config --modversion libusb-1.0)" "$(pkg-config --cflags libusb-1.0)" "$libdir" > build/pkgconfig/libusb-1.0.pc
+
+  web-build:
+    desc: Build the React/Vite frontend into pkg/api/dist
+    cmds:
+      - task: maco-net-helper
+      - task: tofu-provider
+      - task: ui-build
+      - npm --prefix web install
+      - npm --prefix web run build
+
+  web-dev:
+    desc: Run the Vite dev server with HMR and the local API proxy
+    cmds:
+      - task: ui-build
+      - npm --prefix web install
+      - npm --prefix web run dev
+
+  ui-build:
+    desc: Build the maco-ui component library in ui/ that the web app imports
+    cmds:
+      - npm --prefix ui ci
+      - npm --prefix ui run build
+
+  firmware-build:
+    desc: Build the embedded ARM64 UEFI firmware if stale (Docker)
+    method: timestamp
+    sources:
+      - tools/firmware/Dockerfile
+      - tools/firmware/logo.py
+      - tools/firmware/strip-network.sh
+      - web/public/logo.svg
+    generates:
+      - '{{.FIRMWARE_ASSET}}'
+    cmds:
+      - docker build --file tools/firmware/Dockerfile --output type=local,dest=pkg/vm/firmware/assets .
+      - touch {{.FIRMWARE_ASSET | shellQuote}}
+
+  firmware-rebuild:
+    desc: Force a rebuild of the embedded ARM64 UEFI firmware (Docker)
+    cmds:
+      - docker build --no-cache --file tools/firmware/Dockerfile --output type=local,dest=pkg/vm/firmware/assets .
+
+  qemu:
+    desc: Build the self-contained patched QEMU from tools/qemu into {{.QEMU_ARCHIVE}}
+    sources:
+      - tools/qemu/build.sh
+      - tools/qemu/patches/*.patch
+      - tools/qemu/VERSION
+      - tools/qemu/SHA256SUMS
+    generates:
+      - '{{.QEMU_ARCHIVE}}'
+    preconditions:
+      - sh: command -v brew && brew --prefix dtc
+        msg: Install the QEMU build dependencies with Homebrew (brew install dtc meson ninja pkg-config glib pixman libslirp libusb libpng jpeg-turbo zstd)
+    cmds:
+      - bash tools/qemu/build.sh build/qemu/root
+      - tar -czf {{.QEMU_ARCHIVE | shellQuote}} -C build/qemu/root/usr/local/lib/maco qemu
+
+  qemu-bench:
+    desc: Compare VM-to-VM throughput of Homebrew QEMU and the patched build, direct and through the maco switch
+    deps: [qemu, maco-net-helper]
+    vars:
+      STOCK: '{{.STOCK | default "/opt/homebrew/bin/qemu-system-aarch64"}}'
+      PATCHED: build/qemu/root/usr/local/lib/maco/qemu/bin/qemu-system-aarch64
+    cmds:
+      - bash tools/qemu/bench/image.sh build/qemu/bench
+      - python3 tools/qemu/bench/bench.py {{.STOCK | shellQuote}} --image build/qemu/bench --label "homebrew direct"
+      - python3 tools/qemu/bench/bench.py {{.PATCHED | shellQuote}} --image build/qemu/bench --label "patched direct"
+      - python3 tools/qemu/bench/bench.py {{.STOCK | shellQuote}} --image build/qemu/bench --label "homebrew switch" --switch ./maco-net-helper
+      - python3 tools/qemu/bench/bench.py {{.PATCHED | shellQuote}} --image build/qemu/bench --label "patched switch" --switch ./maco-net-helper
+
+  maco-net-helper:
+    desc: Build and copy the native networking helper
+    cmds:
+      - mkdir -p {{dir .HELPER_ASSET | shellQuote}}
+      - '{{.CC}} -O2 -Wall -Wextra -Werror pkg/net/datapath/native/helper.c -o {{.HELPER_ASSET | shellQuote}}'
+      - cp {{.HELPER_ASSET | shellQuote}} maco-net-helper
+
+  test-network-helper:
+    desc: Run the native networking helper tests with sanitizers
+    cmds:
+      - '{{.CC}} -g -Wall -Wextra -Werror -Wno-unused-function -fsanitize=address,undefined tools/net-helper-test.c -o /private/tmp/maco-batching-test'
+      - /private/tmp/maco-batching-test
+
+  test:
+    desc: Run native helper and deployment tests, Go vet, and Go tests
+    cmds:
+      - task: test-network-helper
+      - task: test-deploy
+      - go vet ./...
+      - go test ./...
+      - task: test-mcp
+
+  test-mcp:
+    desc: Vet and test the independent MCP module
+    dir: mcp
+    cmds:
+      - go vet ./...
+      - go test ./...
+
+  test-deploy:
+    desc: Test deployment scripts with mocked SSH, signing, and sudo
+    cmds:
+      - python3 tools/deploy_test.py
+
+  build-style-checker:
+    desc: Build the Go style checker for the execution host
+    method: timestamp
+    sources:
+      - cmd/stylecheck/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - build/stylecheck
+    cmds:
+      - mkdir -p build
+      - go build -o build/stylecheck ./cmd/stylecheck
+
+  check-style:
+    desc: Validate repository coding rules before building
+    cmds:
+      - task: build-style-checker
+      - ./build/stylecheck
+
+  lint:
+    desc: Alias for the repository style check
+    cmds:
+      - task: check-style
+
+  lint-go:
+    desc: Lint both Go modules with the shared configuration
+    cmds:
+      - task: build-style-checker
+      - ./build/stylecheck --only go
+
+  lint-mcp:
+    desc: Lint the independent MCP module
+    dir: mcp
+    cmds:
+      - golangci-lint run --config ../.golangci.yml ./...
+
+  lint-style:
+    desc: Check Go syntax rules and repository text
+    cmds:
+      - task: build-style-checker
+      - ./build/stylecheck --only style
+
+  lint-web:
+    desc: Check handwritten UI code
+    dir: web
+    cmds:
+      - npm run lint
+
+  test-lint:
+    desc: Test repository-specific lint rules
+    cmds:
+      - go test ./cmd/stylecheck
+      - npm --prefix web run test:lint
+
+  tidy:
+    desc: Tidy Go module dependencies
+    cmds:
+      - go mod tidy
+      - task: tidy-mcp
+
+  tidy-mcp:
+    desc: Tidy independent MCP module dependencies
+    dir: mcp
+    cmds:
+      - go mod tidy
+
+  sqlc:
+    desc: Regenerate type-safe database code
+    cmds:
+      - sqlc generate
+
+  run:
+    desc: Build then run maco (task run -- vm list, or ARGS="vm list")
+    cmds:
+      - task: build
+      - '{{printf "./%s" .BINARY | shellQuote}} {{.ARGS | default .CLI_ARGS}}'
+
+  pkg:
+    desc: Build an unsigned macOS installer (VERSION=x.y.z)
+    cmds:
+      - task: build-ui
+      - rm -rf {{.PKG_STAGING | shellQuote}} {{.PKG_SCRIPTS | shellQuote}} build/maco-component.pkg {{printf "maco-%s.pkg" .VERSION | shellQuote}}
+      - mkdir -p {{printf "%s/usr/local/bin" .PKG_STAGING | shellQuote}} {{.PKG_SCRIPTS | shellQuote}}
+      - cp {{.BINARY | shellQuote}} {{printf "%s/usr/local/bin/maco" .PKG_STAGING | shellQuote}}
+      - cp tools/pkg/preinstall {{printf "%s/preinstall" .PKG_SCRIPTS | shellQuote}}
+      - cp tools/pkg/postinstall {{printf "%s/postinstall" .PKG_SCRIPTS | shellQuote}}
+      - chmod +x {{printf "%s/preinstall" .PKG_SCRIPTS | shellQuote}} {{printf "%s/postinstall" .PKG_SCRIPTS | shellQuote}}
+      - xattr -cr {{.PKG_STAGING | shellQuote}}
+      - pkgbuild --root {{.PKG_STAGING | shellQuote}} --scripts {{.PKG_SCRIPTS | shellQuote}} --identifier {{.PKG_ID | shellQuote}} --version {{.VERSION | shellQuote}} --install-location / build/maco-component.pkg
+      - productbuild --package build/maco-component.pkg {{printf "maco-%s.pkg" .VERSION | shellQuote}}
+      - echo {{printf "built maco-%s.pkg" .VERSION | shellQuote}}
+
+  publish:
+    desc: Build the installer and publish it with the landing page to maco-static (HOST=user@host VERSION=x.y.z, URL defaults to https://maco.chevalrouting.org)
+    requires:
+      vars: [HOST, VERSION]
+    vars:
+      URL: '{{.URL | default "https://maco.chevalrouting.org"}}'
+    cmds:
+      - task: pkg
+      - bash tools/publish.sh {{.HOST | shellQuote}} {{.VERSION | shellQuote}} {{.URL | shellQuote}}
+
+  clean:
+    desc: Remove binaries and installer build output
+    cmds:
+      - rm -rf build maco-*.pkg
+      - rm -f {{.BINARY | shellQuote}} maco-net-helper maco-mcp
+
+  help:
+    desc: List available tasks
+    cmds:
+      - '{{.TASK_EXE | shellQuote}} --list'
+
+  docs:
+    desc: Generate the API contract and frontend client
+    cmds:
+      - task: api-generate
+
+  api-tools:
+    desc: Install the pinned Go OpenAPI generator
+    cmds:
+      - go install github.com/swaggo/swag/v2/cmd/swag@{{.SWAG_VERSION}}
+
+  api-generate:
+    desc: Regenerate OpenAPI 3.1 and frontend client types from Go handlers
+    cmds:
+      - swag init --v3.1 -g doc.go -d ./pkg/api --parseDependency --parseInternal --requiredByDefault --outputTypes json -o pkg/api/docs
+      - python3 tools/openapi/normalize.py pkg/api/docs/swagger.json
+      - npm --prefix web run api:generate
+
+  tofu-provider:
+    desc: Cross-build the OpenTofu provider downloads served from the API page (skipped without TOFU_PROVIDER)
+    cmds:
+      - |
+        if [ -d {{.TOFU_PROVIDER | shellQuote}} ]; then
+          rm -rf web/public/downloads
+          task -d {{.TOFU_PROVIDER | shellQuote}} release VERSION={{.TOFU_PROVIDER_VERSION | shellQuote}} OUT="$PWD/web/public/downloads"
+        else
+          echo "No provider checkout at {{.TOFU_PROVIDER}}; the API page will not offer provider downloads"
+        fi
+
+  tofu-schema:
+    desc: Regenerate the OpenTofu provider reference shown in the web UI
+    cmds:
+      - task -d {{.TOFU_PROVIDER | shellQuote}} --silent schema > web/src/api/tofu-schema.json
+
+  api-check:
+    desc: Verify the committed spec and client match Go handlers and routes
+    cmds:
+      - sh tools/openapi/check.sh

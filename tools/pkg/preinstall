@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+if [ -x /usr/local/bin/maco ]; then
+	/usr/local/bin/maco service uninstall || true
+fi
+
+exit 0

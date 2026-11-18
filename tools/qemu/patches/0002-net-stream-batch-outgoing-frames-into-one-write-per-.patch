@@ -1,0 +1,232 @@
+From 8eb551162d18f0e492f739eec712295bc5832e31 Mon Sep 17 00:00:00 2001
+From: maco <maco@localhost>
+Date: Sat, 17 Oct 2026 14:19:21 +0200
+Subject: [PATCH 2/2] net/stream: batch outgoing frames into one write per
+ burst
+
+The stream backend wrote every frame with its own writev(). On macOS
+with a Unix socket peer this was 59% of the main loop while the guest
+transmitted 1500-byte frames, capping guest TX well below what the peer
+could take. Queue frames in a 256 KiB buffer and write the queue from a
+bottom half after the burst. When the queue is full, return 0 so the net
+layer holds the frame and resumes it from qemu_flush_queued_packets()
+once the socket drains.
+---
+ net/passt.c       |   2 +
+ net/stream.c      |   1 +
+ net/stream_data.c | 121 ++++++++++++++++++++++++++++++++++------------
+ net/stream_data.h |   7 ++-
+ 4 files changed, 99 insertions(+), 32 deletions(-)
+
+diff --git a/net/passt.c b/net/passt.c
+index 45440c3..afec193 100644
+--- a/net/passt.c
++++ b/net/passt.c
+@@ -84,6 +84,8 @@ static void net_passt_cleanup(NetClientState *nc)
+ {
+     NetPasstState *s = DO_UPCAST(NetPasstState, data.nc, nc);
+ 
++    net_stream_data_out_cleanup(&s->data);
++
+ #ifdef CONFIG_VHOST_USER
+     if (s->vhost_net) {
+         vhost_net_cleanup(s->vhost_net);
+diff --git a/net/stream.c b/net/stream.c
+index 6df4e25..c69dff7 100644
+--- a/net/stream.c
++++ b/net/stream.c
+@@ -72,6 +72,7 @@ static void net_stream_cleanup(NetClientState *nc)
+ {
+     NetStreamState *s = DO_UPCAST(NetStreamState, data.nc, nc);
+     g_clear_handle_id(&s->timer_tag, g_source_remove);
++    net_stream_data_out_cleanup(&s->data);
+     if (s->addr) {
+         qapi_free_SocketAddress(s->addr);
+         s->addr = NULL;
+diff --git a/net/stream_data.c b/net/stream_data.c
+index 73b45da..bbf35f8 100644
+--- a/net/stream_data.c
++++ b/net/stream_data.c
+@@ -13,57 +13,115 @@
+ #include "io/channel.h"
+ #include "io/net-listener.h"
+ #include "qemu/sockets.h"
++#include "qemu/main-loop.h"
+ 
+ #include "stream_data.h"
+ 
++#define NET_STREAM_OUT_SIZE (256 * 1024)
++
++static gboolean net_stream_data_writable(QIOChannel *ioc,
++                                         GIOCondition condition, gpointer data);
++
++static void net_stream_data_out_flush(NetStreamData *d)
++{
++    size_t sent = 0;
++
++    while (d->ioc && sent < d->out_len) {
++        ssize_t ret = qio_channel_write(d->ioc, (char *)d->out_buf + sent,
++                                        d->out_len - sent, NULL);
++        if (ret == QIO_CHANNEL_ERR_BLOCK) {
++            break;
++        }
++        if (ret < 0) {
++            d->out_len = 0;
++            return;
++        }
++        sent += ret;
++    }
++    if (!d->ioc) {
++        d->out_len = 0;
++        return;
++    }
++    if (sent) {
++        memmove(d->out_buf, d->out_buf + sent, d->out_len - sent);
++        d->out_len -= sent;
++    }
++    if (d->out_len) {
++        if (!d->ioc_write_tag) {
++            d->ioc_write_tag = qio_channel_add_watch(d->ioc, G_IO_OUT,
++                                                     net_stream_data_writable,
++                                                     d, NULL);
++        }
++        return;
++    }
++    if (d->out_blocked) {
++        d->out_blocked = false;
++        qemu_flush_queued_packets(&d->nc);
++    }
++}
++
++static void net_stream_data_out_bh(void *opaque)
++{
++    net_stream_data_out_flush(opaque);
++}
++
+ static gboolean net_stream_data_writable(QIOChannel *ioc,
+                                          GIOCondition condition, gpointer data)
+ {
+     NetStreamData *d = data;
+ 
+     d->ioc_write_tag = 0;
+-
+-    qemu_flush_queued_packets(&d->nc);
++    net_stream_data_out_flush(d);
+ 
+     return G_SOURCE_REMOVE;
+ }
+ 
++void net_stream_data_out_reset(NetStreamData *d)
++{
++    d->out_len = 0;
++    d->out_blocked = false;
++}
++
++void net_stream_data_out_cleanup(NetStreamData *d)
++{
++    if (d->out_bh) {
++        qemu_bh_delete(d->out_bh);
++        d->out_bh = NULL;
++    }
++    g_free(d->out_buf);
++    d->out_buf = NULL;
++    net_stream_data_out_reset(d);
++}
++
++/*
++ * Queue the frame and write the whole queue from a bottom half once the
++ * sender has finished its burst, so a TX burst costs one write() instead
++ * of one per frame. Return 0 while the queue is full so the net layer
++ * holds the frame and calls qemu_flush_queued_packets() later.
++ */
+ ssize_t net_stream_data_receive(NetStreamData *d, const uint8_t *buf,
+                                 size_t size)
+ {
+     uint32_t len = htonl(size);
+-    struct iovec iov[] = {
+-        {
+-            .iov_base = &len,
+-            .iov_len  = sizeof(len),
+-        }, {
+-            .iov_base = (void *)buf,
+-            .iov_len  = size,
+-        },
+-    };
+-    struct iovec local_iov[2];
+-    unsigned int nlocal_iov;
+-    size_t remaining;
+-    ssize_t ret;
+-
+-    remaining = iov_size(iov, 2) - d->send_index;
+-    nlocal_iov = iov_copy(local_iov, 2, iov, 2, d->send_index, remaining);
+-    ret = qio_channel_writev(d->ioc, local_iov, nlocal_iov, NULL);
+-    if (ret == QIO_CHANNEL_ERR_BLOCK) {
+-        ret = 0; /* handled further down */
++
++    if (size + sizeof(len) > NET_STREAM_OUT_SIZE) {
++        return size;
+     }
+-    if (ret == -1) {
+-        d->send_index = 0;
+-        return -errno;
++    if (!d->out_buf) {
++        d->out_buf = g_malloc(NET_STREAM_OUT_SIZE);
++        d->out_bh = qemu_bh_new(net_stream_data_out_bh, d);
+     }
+-    if (ret < (ssize_t)remaining) {
+-        d->send_index += ret;
+-        d->ioc_write_tag = qio_channel_add_watch(d->ioc, G_IO_OUT,
+-                                                 net_stream_data_writable, d,
+-                                                 NULL);
+-        return 0;
++    if (d->out_len + sizeof(len) + size > NET_STREAM_OUT_SIZE) {
++        net_stream_data_out_flush(d);
++        if (d->out_len + sizeof(len) + size > NET_STREAM_OUT_SIZE) {
++            d->out_blocked = true;
++            return 0;
++        }
+     }
+-    d->send_index = 0;
++    memcpy(d->out_buf + d->out_len, &len, sizeof(len));
++    memcpy(d->out_buf + d->out_len + sizeof(len), buf, size);
++    d->out_len += sizeof(len) + size;
++    qemu_bh_schedule(d->out_bh);
+     return size;
+ }
+ 
+@@ -116,6 +174,7 @@ gboolean net_stream_data_send(QIOChannel *ioc, GIOCondition condition,
+         }
+         object_unref(OBJECT(d->ioc));
+         d->ioc = NULL;
++        net_stream_data_out_reset(d);
+ 
+         net_socket_rs_init(&d->rs, net_stream_data_rs_finalize, false);
+         d->nc.link_down = true;
+diff --git a/net/stream_data.h b/net/stream_data.h
+index b868625..c75c35b 100644
+--- a/net/stream_data.h
++++ b/net/stream_data.h
+@@ -12,7 +12,10 @@ typedef struct NetStreamData {
+     guint ioc_read_tag;
+     guint ioc_write_tag;
+     SocketReadState rs;
+-    unsigned int send_index;      /* number of bytes sent*/
++    uint8_t *out_buf;
++    size_t out_len;
++    bool out_blocked;
++    QEMUBH *out_bh;
+     QIOChannelFunc send;
+     /* server data */
+     QIOChannel *listen_ioc;
+@@ -23,6 +26,8 @@ typedef struct NetStreamData {
+ ssize_t net_stream_data_receive(NetStreamData *d, const uint8_t *buf,
+                                 size_t size);
+ void net_stream_data_rs_finalize(SocketReadState *rs);
++void net_stream_data_out_reset(NetStreamData *d);
++void net_stream_data_out_cleanup(NetStreamData *d);
+ gboolean net_stream_data_send(QIOChannel *ioc, GIOCondition condition,
+                               NetStreamData *d);
+ int net_stream_data_client_connected(QIOTask *task, NetStreamData *d);
+-- 
+2.50.0
+
